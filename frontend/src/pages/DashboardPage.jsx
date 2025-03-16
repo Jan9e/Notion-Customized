@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ChevronDown,
   ChevronRight,
@@ -10,17 +10,14 @@ import {
   X,
   LogOut
 } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function DashboardPage() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(true)
-  const user = JSON.parse(localStorage.getItem('user'))
 
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    window.location.href = '/'
-  }
 
   return (
     <div className="h-screen flex">
@@ -75,7 +72,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <button 
-              onClick={handleLogout}
+              onClick={logout}
               className="text-gray-600 hover:text-gray-900 transition-colors"
             >
               <LogOut className="h-4 w-4" />

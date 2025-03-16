@@ -6,47 +6,46 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import { ThemeProvider } from "./components/theme-provider"
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+// Protected Route wrapper component
+function ProtectedRoute({ children }) {
+  const { isAuthenticated } = useAuth();
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: '/dashboard' }} replace />;
+  }
+
+  return children;
+}
 
 function App() {
-  const isAuthenticated = localStorage.getItem('token');
-
   return (
     <ThemeProvider defaultTheme="light" storageKey="notion-theme">
       <Router>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route 
-            path="/signup" 
-            element={isAuthenticated ? <Navigate to="/dashboard" /> : <SignupPage />} 
-          />
-          <Route 
-            path="/forgot-password" 
-            element={isAuthenticated ? <Navigate to="/dashboard" /> : <ForgotPasswordPage />} 
-          />
-          <Route 
-            path="/reset-password/:token" 
-            element={isAuthenticated ? <Navigate to="/dashboard" /> : <ResetPasswordPage />} 
-          />
+        <AuthProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/dashboard"
-            element={
-              isAuthenticated ? <DashboardPage /> : <Navigate to="/login" />
-            }
-          />
-          <Route
-            path="/dashboard/:pageId"
-            element={
-              isAuthenticated ? <DashboardPage /> : <Navigate to="/login" />
-            }
-          />
+            {/* Protected routes */}
+            <Route
+              path="/dashboard/*"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Fallback route */}
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+            {/* Fallback route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
       </Router>
     </ThemeProvider>
   )

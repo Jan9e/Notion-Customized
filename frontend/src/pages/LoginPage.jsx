@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { api } from '../lib/api'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -17,18 +19,17 @@ export default function LoginPage() {
 
     try {
       const response = await api.login({ email, password })
-      // Store token and user data
-      localStorage.setItem('token', response.token)
-      localStorage.setItem('user', JSON.stringify(response.user))
-      // Redirect to dashboard
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 100); 
+      // Use the login function from AuthContext
+      login(response.token, response.user)
     } catch (error) {
       setError(error.message)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleBackToHome = () => {
+    navigate('/', { replace: true })
   }
 
   return (
@@ -40,13 +41,13 @@ export default function LoginPage() {
 
       {/* Back to home button */}
       <div className="p-6">
-        <Link
-          to="/"
+        <button
+          onClick={handleBackToHome}
           className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to home
-        </Link>
+        </button>
       </div>
 
       <div className="flex-1 flex items-center justify-center px-6 py-12 lg:px-8">
