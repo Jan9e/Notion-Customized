@@ -11,34 +11,38 @@ model User {
   id              String    @id @default(cuid())
   email           String    @unique
   password        String
-  name            String?
-  profileImage    String?
+  name            String
   resetToken      String?
   resetTokenExpiry DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   workspaces      Workspace[]
+  pages           Page[]
 }
 
 model Workspace {
-  id          String    @id @default(cuid())
-  name        String
-  icon        String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  pages       Page[]
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  pages     Page[]
 }
 
 model Page {
   id          String    @id @default(cuid())
   title       String
-  content     Json?
+  content     String?   @db.Text
   icon        String?
-  isPublished Boolean   @default(false)
+  isArchived  Boolean   @default(false)
+  parentId    String?
+  workspaceId String
+  userId      String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent      Page?     @relation("PageToPage", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Page[]    @relation("PageToPage")
 } 

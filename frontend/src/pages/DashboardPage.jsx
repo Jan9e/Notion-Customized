@@ -1,130 +1,208 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  ChevronDown,
-  ChevronRight,
-  Plus,
-  Settings,
-  Search,
   Menu,
   X,
-  LogOut
+  Settings,
+  Search,
+  LogOut,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import Sidebar from '../components/Sidebar/Sidebar'
+import { api } from '../lib/api'
 
 export default function DashboardPage() {
   const { user, logout } = useAuth()
-  const navigate = useNavigate()
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [activeWorkspace, setActiveWorkspace] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
+  // Set sidebar open by default on desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsSidebarOpen(true)
+      } else {
+        setIsSidebarOpen(false)
+      }
+    }
+
+    // Set initial state
+    handleResize()
+
+    // Add event listener
+    window.addEventListener('resize', handleResize)
+
+    // Cleanup
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    const loadWorkspace = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        if (!user) {
+          console.log('No user found, skipping workspace load');
+          return;
+        }
+
+        console.log('Loading workspace for user:', user);
+        
+        if (user.workspaces) {
+          console.log('User workspaces:', JSON.stringify(user.workspaces, null, 2));
+        } else {
+          console.log('No workspaces array found on user object');
+        }
+
+        let workspace;
+        if (!user.workspaces?.length) {
+          console.log('No workspaces found, creating new workspace');
+          workspace = await api.createWorkspace({
+            name: 'My Workspace'
+          });
+          console.log('Created new workspace:', workspace);
+        } else {
+          const workspaceId = user.workspaces[0].id;
+          console.log('Attempting to fetch workspace with ID:', workspaceId);
+          
+          const allWorkspaces = await api.getWorkspaces();
+          console.log('All available workspaces:', allWorkspaces);
+          
+          workspace = await api.getWorkspace(workspaceId);
+          console.log('Fetched workspace:', workspace);
+        }
+        
+        if (!workspace) {
+          throw new Error('Failed to load or create workspace');
+        }
+        
+        setActiveWorkspace(workspace);
+      } catch (error) {
+        console.error('Error loading workspace:', error);
+        setError(error.message);
+        
+        try {
+          console.log('Attempting to create fallback workspace');
+          const fallbackWorkspace = await api.createWorkspace({
+            name: 'My Workspace'
+          });
+          console.log('Created fallback workspace:', fallbackWorkspace);
+          setActiveWorkspace(fallbackWorkspace);
+          setError(null);
+        } catch (fallbackError) {
+          console.error('Failed to create fallback workspace:', fallbackError);
+          setError('Could not load or create workspace');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadWorkspace();
+  }, [user]);
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-red-500">
+          Error: {error}
+          <button
+            onClick={() => window.location.reload()}
+            className="ml-4 px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="h-screen flex">
+    <div className="h-screen flex relative">
+      {/* Overlay for mobile when sidebar is open */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className={`${isSidebarOpen ? 'w-64' : 'w-0'} bg-gray-50 border-r border-gray-200 transition-all duration-300 overflow-hidden flex flex-col`}>
-        {/* Workspace Header */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <button 
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-              onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
-            >
-              {isWorkspaceMenuOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
-            <span className="font-medium text-sm">My Workspace</span>
-            <button className="text-gray-600 hover:text-gray-900 transition-colors">
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Workspace Pages */}
-        {isWorkspaceMenuOpen && (
-          <div className="flex-1 overflow-y-auto p-2">
-            <div className="space-y-1">
-              {/* Sample pages - you'll make this dynamic later */}
-              <button className="w-full text-left px-2 py-1 text-sm rounded hover:bg-gray-200 transition-colors">
-                Getting Started
-              </button>
-              <button className="w-full text-left px-2 py-1 text-sm rounded hover:bg-gray-200 transition-colors">
-                Project Ideas
-              </button>
-              <button className="w-full text-left px-2 py-1 text-sm rounded hover:bg-gray-200 transition-colors">
-                Tasks
-              </button>
+      <div 
+        className={`
+          fixed lg:static inset-y-0 left-0 z-30
+          w-64 bg-gray-50 border-r border-gray-200
+          transform lg:transform-none
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          transition-transform duration-200 ease-in-out lg:transition-none
+        `}
+      >
+        {activeWorkspace && (
+          <>
+            <Sidebar 
+              workspaceId={activeWorkspace.id} 
+              onCloseMobile={() => setIsSidebarOpen(false)}
+            />
+            {/* Debug info */}
+            <div className="p-2 text-xs text-gray-500">
+              Workspace ID: {activeWorkspace.id}
             </div>
-          </div>
+          </>
         )}
-
-        {/* User Section */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-                <span className="text-sm font-medium text-gray-600">
-                  {user?.name?.charAt(0)}
-                </span>
-              </div>
-              <div className="text-sm">
-                <div className="font-medium text-gray-900">{user?.name}</div>
-                <div className="text-gray-500 text-xs">{user?.email}</div>
-              </div>
-            </div>
-            <button 
-              onClick={logout}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden w-full">
         {/* Top Bar */}
         <div className="h-14 border-b border-gray-200 flex items-center justify-between px-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              className="text-gray-600 hover:text-gray-900 lg:hidden"
             >
-              {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              <Menu className="h-5 w-5" />
             </button>
-            <div className="relative">
+            <div className="relative hidden sm:block">
               <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search"
-                className="pl-10 pr-4 py-1.5 text-sm rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all"
+                className="pl-10 pr-4 py-1.5 text-sm rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 w-full sm:w-auto"
               />
             </div>
           </div>
-          <button className="text-gray-600 hover:text-gray-900 transition-colors">
-            <Settings className="h-5 w-5" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button className="text-gray-600 hover:text-gray-900">
+              <Settings className="h-5 w-5" />
+            </button>
+            <button
+              onClick={logout}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto bg-white p-8">
+        <div className="flex-1 overflow-auto bg-white p-4 sm:p-6 lg:p-8">
+          {/* This will be replaced with the actual page content */}
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-4xl font-bold text-gray-900 mb-8">Welcome to Your Workspace</h1>
-            <div className="prose prose-gray max-w-none">
-              <p className="text-lg text-gray-600">
-                This is your new Notion-like workspace. Start by creating pages and organizing your thoughts.
-              </p>
-              <div className="mt-8 grid gap-4 grid-cols-1 sm:grid-cols-2">
-                <div className="p-6 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
-                  <h3 className="text-lg font-semibold mb-2">Create a new page</h3>
-                  <p className="text-gray-600">Start writing and organizing your thoughts in a new page.</p>
-                </div>
-                <div className="p-6 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
-                  <h3 className="text-lg font-semibold mb-2">Import data</h3>
-                  <p className="text-gray-600">Import your existing notes and documents.</p>
-                </div>
-              </div>
-            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome to Your Workspace</h1>
+            <p className="mt-4 text-gray-600">
+              Select a page from the sidebar or create a new one to get started.
+            </p>
           </div>
         </div>
       </div>

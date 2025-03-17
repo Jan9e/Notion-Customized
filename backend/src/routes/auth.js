@@ -53,7 +53,7 @@ router.post('/signup', validateSignup, async (req, res) => {
     });
 
     // Create default workspace for user
-    await prisma.workspace.create({
+    const workspace = await prisma.workspace.create({
       data: {
         name: 'My Workspace',
         userId: user.id,
@@ -74,6 +74,12 @@ router.post('/signup', validateSignup, async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        workspaces: [{
+          id: workspace.id,
+          name: workspace.name,
+          createdAt: workspace.createdAt,
+          updatedAt: workspace.updatedAt
+        }],
       },
     });
   } catch (error) {
@@ -85,8 +91,11 @@ router.post('/signup', validateSignup, async (req, res) => {
 // Login route
 router.post('/login', validateLogin, async (req, res) => {
   try {
+    console.log('Login attempt:', { email: req.body.email });
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
@@ -95,16 +104,21 @@ router.post('/login', validateLogin, async (req, res) => {
     // Find user
     const user = await prisma.user.findUnique({
       where: { email },
+      include: {
+        workspaces: true,
+      },
     });
 
     if (!user) {
-      return res.status(401).json({ message: 'Email not found in database' });
+      console.log('User not found:', email);
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Verify password
+    // Check password
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      return res.status(401).json({ message: 'Incorrect password' });
+      console.log('Invalid password for user:', email);
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     // Generate JWT
@@ -114,18 +128,45 @@ router.post('/login', validateLogin, async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    console.log('Login successful:', { 
+      userId: user.id, 
+      email: user.email,
+      workspaceCount: user.workspaces.length 
+    });
+
+    // Create default workspace if user has none
+    let workspaces = user.workspaces;
+    if (workspaces.length === 0) {
+      console.log('Creating default workspace for user:', user.id);
+      const workspace = await prisma.workspace.create({
+        data: {
+          name: 'My Workspace',
+          userId: user.id,
+        },
+      });
+      workspaces = [workspace];
+    }
+
+    // Send response without sensitive data
+    const userResponse = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      workspaces: workspaces.map(w => ({
+        id: w.id,
+        name: w.name,
+        createdAt: w.createdAt,
+        updatedAt: w.updatedAt
+      })),
+    };
+
     res.json({
-      message: 'Login successful',
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
+      user: userResponse,
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Error logging in' });
+    res.status(500).json({ message: 'Error during login' });
   }
 });
 

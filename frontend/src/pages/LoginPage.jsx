@@ -18,9 +18,8 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const response = await api.login({ email, password })
-      // Use the login function from AuthContext
-      login(response.token, response.user)
+      await login({ email, password })
+      navigate('/dashboard', { replace: true })
     } catch (error) {
       setError(error.message)
     } finally {
