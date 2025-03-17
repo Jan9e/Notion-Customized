@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   File,
   Edit,
@@ -15,6 +15,7 @@ export default function TreeItem({
   onCloseMobile 
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [isEditing, setIsEditing] = useState(false)
   const [newTitle, setNewTitle] = useState(item.title)
   const inputRef = useRef(null)
@@ -37,6 +38,9 @@ export default function TreeItem({
 
     try {
       await api.deletePage(item.id)
+      if (location.pathname.includes(`/dashboard/page/${item.id}`)) {
+        navigate('/dashboard')
+      }
       onRefresh?.()
     } catch (error) {
       console.error('Error deleting page:', error)

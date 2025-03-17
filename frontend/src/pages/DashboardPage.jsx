@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Outlet, useLocation } from 'react-router-dom'
 import {
   Menu,
   X,
@@ -13,6 +13,7 @@ import { api } from '../lib/api'
 
 export default function DashboardPage() {
   const { user, logout } = useAuth()
+  const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeWorkspace, setActiveWorkspace] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -128,6 +129,8 @@ export default function DashboardPage() {
     );
   }
 
+  const isPageRoute = location.pathname.includes('/dashboard/page/')
+
   return (
     <div className="h-screen flex relative">
       {/* Overlay for mobile when sidebar is open */}
@@ -196,14 +199,19 @@ export default function DashboardPage() {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto bg-white p-4 sm:p-6 lg:p-8">
-          {/* This will be replaced with the actual page content */}
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome to Your Workspace</h1>
-            <p className="mt-4 text-gray-600">
-              Select a page from the sidebar or create a new one to get started.
-            </p>
-          </div>
+        <div className="flex-1 overflow-auto bg-white">
+          {isPageRoute ? (
+            <Outlet />
+          ) : (
+            <div className="p-4 sm:p-6 lg:p-8">
+              <div className="max-w-4xl mx-auto">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome to Your Workspace</h1>
+                <p className="mt-4 text-gray-600">
+                  Select a page from the sidebar or create a new one to get started.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

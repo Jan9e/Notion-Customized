@@ -6,18 +6,9 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import { ThemeProvider } from "./components/theme-provider"
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-
-// Protected Route wrapper component
-function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth();
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: '/dashboard' }} replace />;
-  }
-
-  return children;
-}
+import { AuthProvider } from './contexts/AuthContext';
+import PrivateRoute from './components/PrivateRoute';
+import PageEditor from './pages/PageEditor';
 
 function App() {
   return (
@@ -36,11 +27,13 @@ function App() {
             <Route
               path="/dashboard/*"
               element={
-                <ProtectedRoute>
+                <PrivateRoute>
                   <DashboardPage />
-                </ProtectedRoute>
+                </PrivateRoute>
               }
-            />
+            >
+              <Route path="page/:pageId" element={<PageEditor />} />
+            </Route>
 
             {/* Fallback route */}
             <Route path="*" element={<Navigate to="/" replace />} />
