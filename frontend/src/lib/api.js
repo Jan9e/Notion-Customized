@@ -111,7 +111,7 @@ export const api = {
         throw new Error('Workspace ID is required');
       }
 
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/content`, {
+      const response = await fetch(`${API_BASE_URL}/pages/workspace/${workspaceId}`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -121,10 +121,7 @@ export const api = {
         throw new Error(errorData.message || 'Failed to get workspace content');
       }
 
-      const data = await response.json();
-      return {
-        pages: data.pages || [],
-      };
+      return await response.json();
     } catch (error) {
       console.error('Error fetching workspace content:', error);
       throw new Error('Failed to get workspace content');
@@ -282,6 +279,102 @@ export const api = {
     } catch (error) {
       console.error('Error cleaning up workspaces:', error);
       throw new Error('Failed to clean up workspaces');
+    }
+  },
+
+  // Page Organization Methods
+  async movePage(pageId, { newParentId, newOrder }) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/${pageId}/move`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ newParentId, newOrder }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to move page');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error moving page:', error);
+      throw new Error('Failed to move page');
+    }
+  },
+
+  async togglePageFavorite(pageId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/${pageId}/favorite`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to toggle favorite');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      throw new Error('Failed to toggle favorite');
+    }
+  },
+
+  async getArchivedPages(workspaceId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/archived?workspaceId=${workspaceId}`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to get archived pages');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching archived pages:', error);
+      throw new Error('Failed to get archived pages');
+    }
+  },
+
+  async restorePage(pageId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/${pageId}/restore`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to restore page');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error restoring page:', error);
+      throw new Error('Failed to restore page');
+    }
+  },
+
+  async permanentlyDeletePage(pageId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/${pageId}/permanent`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete page');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting page:', error);
+      throw new Error('Failed to delete page');
     }
   },
 };

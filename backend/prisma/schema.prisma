@@ -36,13 +36,19 @@ model Page {
   content     String?   @db.Text
   icon        String?
   isArchived  Boolean   @default(false)
+  isFavorite  Boolean   @default(false)
+  order       Int       @default(0)
   parentId    String?
   workspaceId String
   userId      String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent      Page?     @relation("PageToPage", fields: [parentId], references: [id], onDelete: SetNull)
   children    Page[]    @relation("PageToPage")
+
+  @@index([workspaceId, parentId, order])
+  @@index([userId, isFavorite])
 } 

@@ -6,6 +6,8 @@ import {
   X,
   ChevronsLeft,
   ChevronsRight,
+  Star,
+  Archive,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import TreeItem from './TreeItem'
@@ -14,6 +16,9 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
   const navigate = useNavigate()
   const [workspace, setWorkspace] = useState(null)
   const [pages, setPages] = useState([])
+  const [favorites, setFavorites] = useState([])
+  const [showArchived, setShowArchived] = useState(false)
+  const [archivedPages, setArchivedPages] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -21,6 +26,12 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
     loadWorkspaceContent()
     loadWorkspaceDetails()
   }, [workspaceId])
+
+  useEffect(() => {
+    if (showArchived && workspaceId) {
+      fetchArchivedPages()
+    }
+  }, [showArchived, workspaceId])
 
   const loadWorkspaceDetails = async () => {
     try {
@@ -35,8 +46,20 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
   const loadWorkspaceContent = async () => {
     try {
       setIsLoading(true)
-      const data = await api.getWorkspaceContent(workspaceId)
-      setPages(data.pages || [])
+      const { pages } = await api.getWorkspaceContent(workspaceId)
+      
+      if (!pages) {
+        setPages([])
+        setFavorites([])
+        return
+      }
+      
+      // Separate favorites and regular pages
+      const favs = pages.filter(page => page.isFavorite)
+      const regular = buildPageTree(pages.filter(page => !page.isFavorite && !page.isArchived))
+      
+      setFavorites(favs)
+      setPages(regular)
     } catch (error) {
       console.error('Error loading workspace content:', error)
       setError(error.message || 'Failed to load workspace content')
@@ -45,15 +68,55 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
     }
   }
 
+  const fetchArchivedPages = async () => {
+    try {
+      const { pages } = await api.getArchivedPages(workspaceId)
+      setArchivedPages(pages || [])
+    } catch (error) {
+      console.error('Error fetching archived pages:', error)
+      setArchivedPages([])
+    }
+  }
+
+  // Build tree structure from flat array of pages
+  const buildPageTree = (flatPages) => {
+    const pageMap = {}
+    const tree = []
+
+    // First pass: create page map
+    flatPages.forEach(page => {
+      pageMap[page.id] = { ...page, children: [] }
+    })
+
+    // Second pass: build tree structure
+    flatPages.forEach(page => {
+      const node = pageMap[page.id]
+      if (page.parentId && pageMap[page.parentId]) {
+        pageMap[page.parentId].children.push(node)
+      } else {
+        tree.push(node)
+      }
+    })
+
+    // Sort tree and children by order
+    const sortByOrder = (a, b) => a.order - b.order
+    tree.sort(sortByOrder)
+    Object.values(pageMap).forEach(page => {
+      page.children.sort(sortByOrder)
+    })
+
+    return tree
+  }
+
   const handleCreatePage = async () => {
     try {
       const newPage = await api.createPage({
         title: 'Untitled',
         workspaceId,
       })
-      await loadWorkspaceContent()
       navigate(`/dashboard/page/${newPage.id}`)
       if (onCloseMobile) onCloseMobile()
+      loadWorkspaceContent()
     } catch (error) {
       console.error('Error creating page:', error)
       setError('Failed to create page')
@@ -124,15 +187,78 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
 
       {/* Pages List */}
       <div className="flex-1 overflow-y-auto p-2">
-        {pages.map(page => (
-          <TreeItem
-            key={page.id}
-            item={page}
-            workspaceId={workspaceId}
-            onRefresh={loadWorkspaceContent}
-            onCloseMobile={onCloseMobile}
-          />
-        ))}
+        {/* Favorites section */}
+        {favorites.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center px-2 py-1 text-sm font-medium text-gray-500">
+              <Star className="h-4 w-4 mr-1" />
+              Favorites
+            </div>
+            <div>
+              {favorites.map(page => (
+                <TreeItem
+                  key={page.id}
+                  item={page}
+                  workspaceId={workspaceId}
+                  onRefresh={loadWorkspaceContent}
+                  onCloseMobile={onCloseMobile}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Regular pages section */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between px-2 py-1">
+            <span className="text-sm font-medium text-gray-500">Pages</span>
+            <button
+              onClick={handleCreatePage}
+              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              title="Create new page"
+            >
+              <Plus className="h-4 w-4 text-gray-500" />
+            </button>
+          </div>
+          <div>
+            {pages.map(page => (
+              <TreeItem
+                key={page.id}
+                item={page}
+                workspaceId={workspaceId}
+                onRefresh={loadWorkspaceContent}
+                onCloseMobile={onCloseMobile}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Archive section */}
+        <div>
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className="w-full flex items-center px-2 py-1 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded transition-colors"
+          >
+            <Archive className="h-4 w-4 mr-1" />
+            Archive
+          </button>
+          {showArchived && (
+            <div className="mt-1">
+              {archivedPages.map(page => (
+                <TreeItem
+                  key={page.id}
+                  item={page}
+                  workspaceId={workspaceId}
+                  onRefresh={() => {
+                    loadWorkspaceContent()
+                    fetchArchivedPages()
+                  }}
+                  onCloseMobile={onCloseMobile}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
