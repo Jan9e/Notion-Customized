@@ -55,6 +55,13 @@ export function AuthProvider({ children }) {
       navigate('/dashboard', { replace: true })
       return response
     } catch (error) {
+      console.error('Login error:', error)
+      
+      // Handle the specific NO_WORKSPACES error
+      if (error.response?.data?.errorCode === 'NO_WORKSPACES') {
+        throw new Error('Your account has no workspaces. Please sign up for a new account or contact support.')
+      }
+      
       throw error
     }
   }

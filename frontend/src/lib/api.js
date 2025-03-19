@@ -14,20 +14,39 @@ const getAuthHeaders = () => {
 
 export const api = {
   async login(credentials) {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(credentials),
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to login');
+      const data = await response.json();
+      if (!response.ok) {
+        const error = new Error(data.message || 'Failed to login');
+        error.response = {
+          status: response.status,
+          data: data
+        };
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      if (error.response) {
+        throw error; // Already formatted above
+      } else {
+        // Handle network errors
+        const formattedError = new Error(error.message || 'Network error');
+        formattedError.response = {
+          status: 0,
+          data: { message: 'Network connection failed' }
+        };
+        throw formattedError;
+      }
     }
-
-    return data;
   },
 
   async signup(userData) {
@@ -243,6 +262,26 @@ export const api = {
     } catch (error) {
       console.error('Error fetching workspace:', error);
       throw new Error('Failed to get workspace');
+    }
+  },
+
+  async cleanupWorkspaces() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workspaces/cleanup`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to clean up workspaces');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error cleaning up workspaces:', error);
+      throw new Error('Failed to clean up workspaces');
     }
   },
 };

@@ -1,4 +1,4 @@
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
@@ -14,27 +14,27 @@ const slashCommands = [
     id: 'paragraph',
     label: 'Text',
     description: 'Just start writing with plain text',
-    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-text"><path d="M17.5 10H6.5"/><path d="M8 6h8"/><path d="M8 14h8"/><path d="M17.5 18H6.5"/></svg>',
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-text"><path d="M17.5 10H6.5"/><path d="M6 14L8 14"/><path d="M12.5 14L16.5 14"/><path d="M21 12C21 16.97 16.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z"/></svg>',
     action: ({ editor, range }) => {
       editor
         .chain()
         .focus()
         .deleteRange(range)
-        .setNode('paragraph')
+        .setParagraph()
         .run()
     },
   },
   {
     id: 'heading1',
     label: 'Heading 1',
-    description: 'Big section heading',
+    description: 'Large section heading',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-heading-1"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="m17 12 3-2v8"/></svg>',
     action: ({ editor, range }) => {
       editor
         .chain()
         .focus()
         .deleteRange(range)
-        .setNode('heading', { level: 1 })
+        .setHeading({ level: 1 })
         .run()
     },
   },
@@ -48,7 +48,7 @@ const slashCommands = [
         .chain()
         .focus()
         .deleteRange(range)
-        .setNode('heading', { level: 2 })
+        .setHeading({ level: 2 })
         .run()
     },
   },
@@ -62,14 +62,14 @@ const slashCommands = [
         .chain()
         .focus()
         .deleteRange(range)
-        .setNode('heading', { level: 3 })
+        .setHeading({ level: 3 })
         .run()
     },
   },
   {
     id: 'bulletList',
     label: 'Bullet List',
-    description: 'Create a simple bullet list',
+    description: 'Create a bullet list (use Tab to nest)',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-list"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>',
     action: ({ editor, range }) => {
       editor
@@ -83,7 +83,7 @@ const slashCommands = [
   {
     id: 'orderedList',
     label: 'Numbered List',
-    description: 'Create a numbered list',
+    description: 'Create a numbered list (use Tab to nest)',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-list-ordered"><line x1="10" x2="21" y1="6" y2="6"/><line x1="10" x2="21" y1="12" y2="12"/><line x1="10" x2="21" y1="18" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>',
     action: ({ editor, range }) => {
       editor
@@ -98,13 +98,13 @@ const slashCommands = [
     id: 'codeBlock',
     label: 'Code Block',
     description: 'Add a code block',
-    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-code"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-code"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
     action: ({ editor, range }) => {
       editor
         .chain()
         .focus()
         .deleteRange(range)
-        .setNode('codeBlock')
+        .setCodeBlock()
         .run()
     },
   },
@@ -118,7 +118,7 @@ const slashCommands = [
         .chain()
         .focus()
         .deleteRange(range)
-        .setBlockquote()
+        .insertContent('<blockquote><p>' + (editor.state.selection.empty ? '' : editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to)) + '</p></blockquote>')
         .run()
     },
   },
@@ -138,19 +138,25 @@ const slashCommands = [
   },
 ]
 
-const Editor = ({ content, onChange }) => {
+const Editor = ({ content = '', onUpdate = () => {} }) => {
   const [showSlashCommands, setShowSlashCommands] = useState(false)
   const [slashCommandsPosition, setSlashCommandsPosition] = useState(null)
   const [slashCommandsRange, setSlashCommandsRange] = useState(null)
-  const editorRef = useRef(null)
   const menuRef = useRef(null)
+  const editorRef = useRef(null)
 
-  // Simple implementation of slash commands
   const handleSlashCommand = (command, range) => {
-    if (command) {
+    if (command && command.action && editor) {
+      // If we have a valid range, delete the slash character first
+      if (range) {
+        editor.chain().focus().deleteRange({
+          from: range.from - 1, // Start from the slash character position
+          to: range.from         // End at the current position
+        }).run()
+      }
       command.action({ editor, range })
+      setShowSlashCommands(false)
     }
-    setShowSlashCommands(false)
   }
 
   const editor = useEditor({
@@ -159,43 +165,80 @@ const Editor = ({ content, onChange }) => {
         heading: {
           levels: [1, 2, 3],
         },
-      }),
-      Placeholder.configure({
-        placeholder: 'Type "/" for commands...',
-      }),
-      TaskList,
-      TaskItem.configure({
-        nested: true,
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: true,
+        },
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: true,
+        },
+        blockquote: {
+          HTMLAttributes: {
+            class: 'custom-blockquote',
+          },
+        },
       }),
     ],
-    content: content || '<p></p>',
+    content,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML())
+      onUpdate(editor.getHTML())
     },
     editorProps: {
+      attributes: {
+        class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none',
+        spellcheck: 'false',
+      },
       handleKeyDown: (view, event) => {
-        if (event.key === '/' && !showSlashCommands) {
+        // Handle slash key to show commands
+        if (event.key === '/') {
           const { state } = view
           const { selection } = state
           const { $from } = selection
           
-          // Get the current position for the popup
-          const pos = view.coordsAtPos($from.pos)
-          
-          // Calculate position relative to the viewport
-          const editorRect = editorRef.current.getBoundingClientRect()
+          // Calculate the current cursor position in document coordinates
+          const coords = view.coordsAtPos(selection.from)
           
           setSlashCommandsPosition({
-            left: pos.left - editorRect.left,
-            top: pos.bottom - editorRect.top + 10, // Add a small offset
+            left: coords.left,
+            top: coords.bottom + 5, // Position right below cursor with small offset
           })
           
+          // Store the range to delete the slash later
           setSlashCommandsRange({
             from: $from.pos,
-            to: $from.pos,
+            to: $from.pos
           })
           
           setShowSlashCommands(true)
+          return false
+        }
+
+        // Handle Tab key for list indentation
+        if (event.key === 'Tab') {
+          const { editor } = view
+          
+          if (!editor) return false
+          
+          // If in a list, prevent default tab behavior and handle indentation
+          if (editor.isActive('bulletList') || editor.isActive('orderedList')) {
+            event.preventDefault()
+            
+            if (event.shiftKey) {
+              // Shift+Tab: Decrease indent (lift)
+              editor.chain().focus().liftListItem('listItem').run()
+            } else {
+              // Tab: Increase indent (sink)
+              editor.chain().focus().sinkListItem('listItem').run()
+            }
+            return true
+          }
+          
+          return false
+        }
+        
+        if (event.key === 'Escape' && showSlashCommands) {
+          setShowSlashCommands(false)
           return true
         }
         
@@ -225,54 +268,13 @@ const Editor = ({ content, onChange }) => {
     }
   }, [menuRef, editorRef])
 
-  // Add a floating button to trigger slash commands
-  const handleFloatingButtonClick = () => {
-    if (!editor) return
-    
-    editor.commands.focus()
-    
-    const { state } = editor
-    const { selection } = state
-    const { $from } = selection
-    
-    // Get the current position for the popup
-    const pos = editor.view.coordsAtPos($from.pos)
-    
-    // Calculate position relative to the viewport
-    const editorRect = editorRef.current.getBoundingClientRect()
-    
-    setSlashCommandsPosition({
-      left: pos.left - editorRect.left,
-      top: pos.bottom - editorRect.top + 10, // Add a small offset
-    })
-    
-    setSlashCommandsRange({
-      from: $from.pos,
-      to: $from.pos,
-    })
-    
-    setShowSlashCommands(true)
-  }
-
   if (!editor) {
     return null
   }
 
   return (
-    <div className="prose max-w-none relative" ref={editorRef}>
-      <EditorContent editor={editor} />
-      
-      {/* Floating button for slash commands */}
-      <button 
-        className="fixed bottom-4 right-4 bg-blue-500 text-white p-3 rounded-full shadow-lg hover:bg-blue-600 transition-colors"
-        onClick={handleFloatingButtonClick}
-        title="Open slash commands"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3Z"></path>
-          <path d="M9 17v1a3 3 0 0 0 6 0v-1"></path>
-        </svg>
-      </button>
+    <div className="editor-container">
+      <EditorContent editor={editor} className="editor-content" ref={editorRef} />
       
       {/* Slash commands popup */}
       {showSlashCommands && slashCommandsPosition && (
@@ -303,6 +305,29 @@ const Editor = ({ content, onChange }) => {
           </div>
         </div>
       )}
+      
+      {/* Add keyboard shortcut info */}
+      <div className="editor-shortcuts-info">
+        <p>Tip: Use <kbd>Tab</kbd> to indent list items and <kbd>Shift+Tab</kbd> to unindent</p>
+      </div>
+      
+      {/* Temporary test button for lists */}
+      <div className="fixed bottom-4 right-4 flex gap-2">
+        <button 
+          className="bg-green-500 text-white p-2 rounded shadow-lg hover:bg-green-600 transition-colors text-xs"
+          onClick={() => editor && editor.commands.toggleBulletList()}
+          title="Test Bullet List"
+        >
+          Bullet List
+        </button>
+        <button 
+          className="bg-blue-500 text-white p-2 rounded shadow-lg hover:bg-blue-600 transition-colors text-xs"
+          onClick={() => editor && editor.commands.toggleOrderedList()}
+          title="Test Numbered List"
+        >
+          Numbered List
+        </button>
+      </div>
     </div>
   )
 }

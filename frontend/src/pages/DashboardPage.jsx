@@ -8,16 +8,19 @@ import {
   LogOut,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { usePage } from '../contexts/PageContext'
 import Sidebar from '../components/Sidebar/Sidebar'
 import { api } from '../lib/api'
 
 export default function DashboardPage() {
   const { user, logout } = useAuth()
+  const { setWorkspace } = usePage()
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeWorkspace, setActiveWorkspace] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [createAttempts, setCreateAttempts] = useState(0) // Track creation attempts
 
   // Set sidebar open by default on desktop
   useEffect(() => {
@@ -52,58 +55,34 @@ export default function DashboardPage() {
 
         console.log('Loading workspace for user:', user);
         
-        if (user.workspaces) {
-          console.log('User workspaces:', JSON.stringify(user.workspaces, null, 2));
-        } else {
-          console.log('No workspaces array found on user object');
-        }
-
-        let workspace;
-        if (!user.workspaces?.length) {
-          console.log('No workspaces found, creating new workspace');
-          workspace = await api.createWorkspace({
-            name: 'My Workspace'
-          });
-          console.log('Created new workspace:', workspace);
-        } else {
-          const workspaceId = user.workspaces[0].id;
-          console.log('Attempting to fetch workspace with ID:', workspaceId);
-          
-          const allWorkspaces = await api.getWorkspaces();
-          console.log('All available workspaces:', allWorkspaces);
-          
-          workspace = await api.getWorkspace(workspaceId);
-          console.log('Fetched workspace:', workspace);
+        if (!user.workspaces || user.workspaces.length === 0) {
+          // No workspaces found, but we won't create one here - it should be created during signup
+          throw new Error('No workspaces found. Please log out and sign up again.');
         }
         
+        // Use the first workspace from the user object
+        const workspaceId = user.workspaces[0].id;
+        console.log('Attempting to fetch workspace with ID:', workspaceId);
+        
+        const workspace = await api.getWorkspace(workspaceId);
+        console.log('Fetched workspace:', workspace);
+        
         if (!workspace) {
-          throw new Error('Failed to load or create workspace');
+          throw new Error('Failed to load workspace');
         }
         
         setActiveWorkspace(workspace);
+        setWorkspace(workspace.id);
       } catch (error) {
         console.error('Error loading workspace:', error);
         setError(error.message);
-        
-        try {
-          console.log('Attempting to create fallback workspace');
-          const fallbackWorkspace = await api.createWorkspace({
-            name: 'My Workspace'
-          });
-          console.log('Created fallback workspace:', fallbackWorkspace);
-          setActiveWorkspace(fallbackWorkspace);
-          setError(null);
-        } catch (fallbackError) {
-          console.error('Failed to create fallback workspace:', fallbackError);
-          setError('Could not load or create workspace');
-        }
       } finally {
         setIsLoading(false);
       }
     };
 
     loadWorkspace();
-  }, [user]);
+  }, [user, setWorkspace]);
 
   if (isLoading) {
     return (
@@ -115,16 +94,45 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-red-500">
-          Error: {error}
-          <button
-            onClick={() => window.location.reload()}
-            className="ml-4 px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800"
-          >
-            Retry
-          </button>
+      <div className="h-screen flex flex-col items-center justify-center p-4">
+        <div className="text-red-500 mb-4 text-center">
+          <h2 className="text-xl font-bold mb-2">Error</h2>
+          <p>{error}</p>
         </div>
+        
+        {error.toLowerCase().includes("workspace") && (
+          <div className="mt-4">
+            <p className="text-sm text-gray-700 mb-2">
+              It looks like there might be an issue with your workspaces. 
+              This can happen if the application created too many workspaces for your account.
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  setIsLoading(true);
+                  const result = await api.cleanupWorkspaces();
+                  alert(`Cleaned up workspaces. ${result.message}`);
+                  // Reload the page to refresh workspaces
+                  window.location.reload();
+                } catch (err) {
+                  alert(`Failed to clean up workspaces: ${err.message}`);
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
+            >
+              Clean Up Workspaces
+            </button>
+          </div>
+        )}
+        
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -195,6 +203,28 @@ export default function DashboardPage() {
             >
               <LogOut className="h-5 w-5" />
             </button>
+            {/* Add workspace cleanup button */}
+            {error && error.includes("workspaces") && (
+              <button
+                onClick={async () => {
+                  try {
+                    setIsLoading(true);
+                    const result = await api.cleanupWorkspaces();
+                    alert(`Cleaned up workspaces. ${result.message}`);
+                    // Reload the page to refresh workspaces
+                    window.location.reload();
+                  } catch (err) {
+                    alert(`Failed to clean up workspaces: ${err.message}`);
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                className="ml-2 px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                title="Remove excess workspaces"
+              >
+                Fix Workspaces
+              </button>
+            )}
           </div>
         </div>
 

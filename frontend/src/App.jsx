@@ -7,6 +7,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import { ThemeProvider } from "./components/theme-provider"
 import { AuthProvider } from './contexts/AuthContext';
+import { PageProvider } from './contexts/PageContext';
 import PrivateRoute from './components/PrivateRoute';
 import PageEditor from './pages/PageEditor';
 
@@ -15,29 +16,31 @@ function App() {
     <ThemeProvider defaultTheme="light" storageKey="notion-theme">
       <Router>
         <AuthProvider>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+          <PageProvider>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
-            {/* Protected routes */}
-            <Route
-              path="/dashboard/*"
-              element={
-                <PrivateRoute>
-                  <DashboardPage />
-                </PrivateRoute>
-              }
-            >
-              <Route path="page/:pageId" element={<PageEditor />} />
-            </Route>
+              {/* Protected routes */}
+              <Route
+                path="/dashboard/*"
+                element={
+                  <PrivateRoute>
+                    <DashboardPage />
+                  </PrivateRoute>
+                }
+              >
+                <Route path="page/:pageId" element={<PageEditor />} />
+              </Route>
 
-            {/* Fallback route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              {/* Fallback route */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </PageProvider>
         </AuthProvider>
       </Router>
     </ThemeProvider>

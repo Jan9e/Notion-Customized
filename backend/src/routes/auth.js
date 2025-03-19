@@ -92,7 +92,7 @@ router.post('/signup', validateSignup, async (req, res) => {
 router.post('/login', validateLogin, async (req, res) => {
   try {
     console.log('Login attempt:', { email: req.body.email });
-    
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('Validation errors:', errors.array());
@@ -128,23 +128,38 @@ router.post('/login', validateLogin, async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    console.log('Login successful:', { 
-      userId: user.id, 
+    console.log('Login successful:', {
+      userId: user.id,
       email: user.email,
-      workspaceCount: user.workspaces.length 
+      workspaceCount: user.workspaces.length
     });
 
-    // Create default workspace if user has none
+    // Get workspaces or create default workspace if user has none
     let workspaces = user.workspaces;
     if (workspaces.length === 0) {
-      console.log('Creating default workspace for user:', user.id);
-      const workspace = await prisma.workspace.create({
-        data: {
-          name: 'My Workspace',
-          userId: user.id,
-        },
+      console.log('No workspaces found for user:', user.id);
+      
+      // Double-check that there really are no workspaces (race condition protection)
+      const existingWorkspaces = await prisma.workspace.findMany({
+        where: { userId: user.id },
+        take: 5, // Limit to 5 for safety
       });
-      workspaces = [workspace];
+      
+      if (existingWorkspaces.length > 0) {
+        console.log(`Found ${existingWorkspaces.length} existing workspaces for user ${user.id}`);
+        workspaces = existingWorkspaces;
+      } else {
+        // Instead of creating a workspace, return an error message
+        console.log(`User ${user.id} has no workspaces`);
+        return res.status(400).json({ 
+          message: 'No workspaces found for this user. Please contact support.',
+          errorCode: 'NO_WORKSPACES'
+        });
+      }
+    } else if (workspaces.length > 5) {
+      // If there are too many workspaces, just return the first 5
+      console.log(`User ${user.id} has ${workspaces.length} workspaces, limiting response to 5`);
+      workspaces = workspaces.slice(0, 5);
     }
 
     // Send response without sensitive data
