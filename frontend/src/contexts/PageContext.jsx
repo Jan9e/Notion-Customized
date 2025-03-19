@@ -8,12 +8,29 @@ export function PageProvider({ children }) {
   const [currentWorkspace, setWorkspace] = useState(null);
   const [currentPage, setCurrentPage] = useState(null);
   
+  // Add state for tracking real-time title updates
+  const [activePageId, setActivePageId] = useState(null);
+  const [activePageTitle, setActivePageTitle] = useState('');
+  
   // Values to be provided to consumers
   const value = {
     workspace: currentWorkspace,
     setWorkspace,
     currentPage,
     setCurrentPage,
+    
+    // Real-time title update values
+    activePageId,
+    setActivePageId,
+    activePageTitle,
+    setActivePageTitle,
+    
+    // Helper method to update both the current page and title
+    updateCurrentPage: (page) => {
+      setCurrentPage(page);
+      setActivePageId(page?.id);
+      setActivePageTitle(page?.title || '');
+    }
   };
 
   return (

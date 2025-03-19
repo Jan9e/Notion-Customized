@@ -144,6 +144,8 @@ const Editor = ({ content = '', onUpdate = () => {} }) => {
   const [slashCommandsRange, setSlashCommandsRange] = useState(null)
   const menuRef = useRef(null)
   const editorRef = useRef(null)
+  const [showPopup, setShowPopup] = useState(false)
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 })
 
   const handleSlashCommand = (command, range) => {
     if (command && command.action && editor) {
@@ -190,14 +192,17 @@ const Editor = ({ content = '', onUpdate = () => {} }) => {
         spellcheck: 'false',
       },
       handleKeyDown: (view, event) => {
-        // Handle slash key to show commands
-        if (event.key === '/') {
-          const { state } = view
-          const { selection } = state
+        const { key, target } = event
+
+        if (key === '/') {
+          // Show the popup
+          setShowSlashCommands(true)
+          // Calculate position based on cursor position
+          const { selection } = view.state
           const { $from } = selection
           
           // Calculate the current cursor position in document coordinates
-          const coords = view.coordsAtPos(selection.from)
+          const coords = view.coordsAtPos($from.pos)
           
           setSlashCommandsPosition({
             left: coords.left,
@@ -210,12 +215,17 @@ const Editor = ({ content = '', onUpdate = () => {} }) => {
             to: $from.pos
           })
           
-          setShowSlashCommands(true)
           return false
+        } else if (key === ' ') {
+          // Hide the popup if space is pressed after /
+          if (showSlashCommands) {
+            setShowSlashCommands(false)
+            return true
+          }
         }
 
         // Handle Tab key for list indentation
-        if (event.key === 'Tab') {
+        if (key === 'Tab') {
           const { editor } = view
           
           if (!editor) return false
@@ -237,7 +247,7 @@ const Editor = ({ content = '', onUpdate = () => {} }) => {
           return false
         }
         
-        if (event.key === 'Escape' && showSlashCommands) {
+        if (key === 'Escape' && showSlashCommands) {
           setShowSlashCommands(false)
           return true
         }

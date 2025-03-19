@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import Editor from '../components/Editor/Editor'
 import { Loader2 } from 'lucide-react'
+import { usePage } from '../contexts/PageContext'
 
 export default function PageEditor() {
   const { pageId } = useParams()
@@ -11,9 +12,22 @@ export default function PageEditor() {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveTimeout, setSaveTimeout] = useState(null)
+  
+  // Get the page context for real-time updates
+  const { setActivePageId, setActivePageTitle, updateCurrentPage } = usePage()
 
   useEffect(() => {
     loadPage()
+    
+    // Set the active page ID when the component mounts or ID changes
+    setActivePageId(pageId)
+    
+    // Cleanup when unmounting
+    return () => {
+      if (saveTimeout) clearTimeout(saveTimeout)
+      setActivePageId(null)
+      setActivePageTitle('')
+    }
   }, [pageId])
 
   const loadPage = async () => {
@@ -21,6 +35,10 @@ export default function PageEditor() {
       setLoading(true)
       const pageData = await api.getPage(pageId)
       setPage(pageData)
+      
+      // Update the page context with the loaded page
+      updateCurrentPage(pageData)
+      
       setError(null)
     } catch (err) {
       console.error('Error loading page:', err)
@@ -33,6 +51,9 @@ export default function PageEditor() {
   const handleTitleChange = (e) => {
     const newTitle = e.target.value
     setPage(prev => ({ ...prev, title: newTitle }))
+    
+    // Update the title in the context for real-time sidebar updates
+    setActivePageTitle(newTitle)
     
     // Debounce save
     if (saveTimeout) clearTimeout(saveTimeout)

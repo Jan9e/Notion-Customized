@@ -7,6 +7,7 @@ import {
   X,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { usePage } from '../../contexts/PageContext'
 
 export default function TreeItem({ 
   item, 
@@ -19,6 +20,15 @@ export default function TreeItem({
   const [isEditing, setIsEditing] = useState(false)
   const [newTitle, setNewTitle] = useState(item.title)
   const inputRef = useRef(null)
+  
+  // Get the active page information from context
+  const { activePageId, activePageTitle } = usePage()
+  
+  // Check if this item is the active page
+  const isActive = activePageId === item.id
+  
+  // Use the active title from context if this is the active page
+  const displayTitle = isActive ? activePageTitle : item.title
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -26,6 +36,11 @@ export default function TreeItem({
       inputRef.current.select()
     }
   }, [isEditing])
+  
+  // Update local state when the item prop changes
+  useEffect(() => {
+    setNewTitle(item.title)
+  }, [item.title])
 
   const handleClick = () => {
     navigate(`/dashboard/page/${item.id}`)
@@ -63,8 +78,12 @@ export default function TreeItem({
   }
 
   return (
-    <div className="group flex items-center py-1 px-2 rounded-md hover:bg-gray-100 cursor-pointer relative"
-      onClick={handleClick}>
+    <div
+      className={`group flex items-center py-1 px-2 rounded-md hover:bg-gray-100 cursor-pointer relative ${
+        isActive ? 'bg-gray-100' : ''
+      }`}
+      onClick={handleClick}
+    >
       <File className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
 
       {isEditing ? (
@@ -81,7 +100,7 @@ export default function TreeItem({
         </form>
       ) : (
         <span className="flex-1 text-sm truncate">
-          {item.title}
+          {displayTitle}
         </span>
       )}
 
