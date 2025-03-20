@@ -35,27 +35,24 @@ export default function PageEditor({ onRefresh }) {
 
   useEffect(() => {
     loadPage()
-    
-    // Set the active page ID when the component mounts or ID changes
     setActivePageId(pageId)
     
-    // Cleanup when unmounting
+    // Cleanup when unmounting or changing pages
     return () => {
       if (saveTimeout) clearTimeout(saveTimeout)
+      // Refresh workspace content when navigating away
+      refreshWorkspace()
       setActivePageId(null)
       setActivePageTitle('')
     }
-  }, [pageId])
+  }, [pageId, refreshWorkspace])
 
   const loadPage = async () => {
     try {
       setLoading(true)
       const pageData = await api.getPage(pageId)
       setPage(pageData)
-      
-      // Update the page context with the loaded page
       updateCurrentPage(pageData)
-      
       setError(null)
     } catch (err) {
       console.error('Error loading page:', err)
@@ -67,12 +64,11 @@ export default function PageEditor({ onRefresh }) {
 
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
+    // Only update local state and active title
     setPage(prev => ({ ...prev, title: newTitle }));
+    setActivePageTitle(newTitle);
     
-    // Update context once for immediate sidebar update
-    updateCurrentPage({ ...page, title: newTitle });
-    
-    // Save the title with debounce (but don't update context again)
+    // Save the title with debounce
     debouncedSaveTitle(newTitle);
   }
 
