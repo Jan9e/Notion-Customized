@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import Editor from '../components/Editor/Editor'
 import { Loader2 } from 'lucide-react'
 import { usePage } from '../contexts/PageContext'
+import { debounce } from 'lodash'
 
-export default function PageEditor() {
+export default function PageEditor({ onRefresh }) {
   const { pageId } = useParams()
   const [page, setPage] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -14,7 +15,23 @@ export default function PageEditor() {
   const [saveTimeout, setSaveTimeout] = useState(null)
   
   // Get the page context for real-time updates
-  const { setActivePageId, setActivePageTitle, updateCurrentPage } = usePage()
+  const { setActivePageId, setActivePageTitle, updateCurrentPage, refreshWorkspace } = usePage()
+
+  // Create a debounced save function for the title
+  const debouncedSaveTitle = useCallback(
+    debounce(async (newTitle) => {
+      try {
+        setSaving(true);
+        const updatedPage = await api.updatePage(pageId, { title: newTitle });
+        setPage(updatedPage);
+        setSaving(false);
+      } catch (error) {
+        console.error('Error saving title:', error);
+        setSaving(false);
+      }
+    }, 1000),
+    [pageId]
+  );
 
   useEffect(() => {
     loadPage()
@@ -49,16 +66,14 @@ export default function PageEditor() {
   }
 
   const handleTitleChange = (e) => {
-    const newTitle = e.target.value
-    setPage(prev => ({ ...prev, title: newTitle }))
+    const newTitle = e.target.value;
+    setPage(prev => ({ ...prev, title: newTitle }));
     
-    // Update the title in the context for real-time sidebar updates
-    setActivePageTitle(newTitle)
+    // Update context once for immediate sidebar update
+    updateCurrentPage({ ...page, title: newTitle });
     
-    // Debounce save
-    if (saveTimeout) clearTimeout(saveTimeout)
-    const timeout = setTimeout(() => updatePage({ title: newTitle }), 1000)
-    setSaveTimeout(timeout)
+    // Save the title with debounce (but don't update context again)
+    debouncedSaveTitle(newTitle);
   }
 
   const handleContentChange = (newContent) => {
@@ -72,13 +87,13 @@ export default function PageEditor() {
 
   const updatePage = async (updates) => {
     try {
-      setSaving(true)
-      await api.updatePage(pageId, updates)
-      setSaving(false)
+      setSaving(true);
+      await api.updatePage(pageId, updates);
+      setSaving(false);
     } catch (err) {
-      console.error('Error saving page:', err)
-      alert('Failed to save changes')
-      setSaving(false)
+      console.error('Error saving page:', err);
+      alert('Failed to save changes');
+      setSaving(false);
     }
   }
 
@@ -118,7 +133,8 @@ export default function PageEditor() {
         
         <Editor
           content={page.content}
-          onChange={handleContentChange}
+          onUpdate={handleContentChange}
+          pageId={pageId}
         />
       </div>
     </div>

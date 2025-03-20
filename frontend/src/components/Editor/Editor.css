@@ -237,4 +237,105 @@
 .slash-command-item-description {
   font-size: 0.75rem;
   color: #6b7280;
-} 
+}
+
+.editor-container {
+  position: relative;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.editor-content {
+  background-color: white;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  min-height: 300px;
+}
+
+/* Bubble Menu Styles */
+.bubble-menu {
+  display: flex;
+  background-color: white;
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+  box-shadow: rgba(15, 15, 15, 0.05) 0px 0px 0px 1px, 
+              rgba(15, 15, 15, 0.1) 0px 3px 6px, 
+              rgba(15, 15, 15, 0.2) 0px 9px 24px;
+  gap: 0.125rem;
+  align-items: center;
+  height: 2rem;
+}
+
+.bubble-menu-button {
+  border: none;
+  background: none;
+  color: #37352f;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  transition: all 0.1s ease-in-out;
+}
+
+.bubble-menu-button:hover {
+  background-color: rgba(55, 53, 47, 0.08);
+}
+
+.bubble-menu-button.is-active {
+  background-color: rgba(55, 53, 47, 0.08);
+  color: #2563eb;
+}
+
+.bubble-menu-button svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.5px;
+}
+
+/* Add separator between button groups */
+.bubble-menu-button + .bubble-menu-button {
+  position: relative;
+  margin-left: 2px;
+}
+
+/* Hover effect for the entire menu */
+.bubble-menu:hover {
+  box-shadow: rgba(15, 15, 15, 0.05) 0px 0px 0px 1px, 
+              rgba(15, 15, 15, 0.1) 0px 3px 6px, 
+              rgba(15, 15, 15, 0.2) 0px 9px 24px;
+}
+
+/* Animation for the bubble menu */
+.tippy-box[data-animation='fade'][data-state='hidden'] {
+  opacity: 0;
+}
+
+[data-tippy-root] {
+  max-width: calc(100vw - 10px);
+}
+
+.tippy-box {
+  position: relative;
+  background-color: white;
+  border-radius: 0.375rem;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: normal;
+  outline: 0;
+  transition-property: transform, visibility, opacity;
+}
+
+/* Existing styles... */
+.slash-command-list {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  width: 240px;
+}
+
+/* ... rest of existing styles ... */ 

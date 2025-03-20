@@ -12,6 +12,9 @@ export function PageProvider({ children }) {
   const [activePageId, setActivePageId] = useState(null);
   const [activePageTitle, setActivePageTitle] = useState('');
   
+  // Add state for the refresh function
+  const [refreshWorkspace, setRefreshWorkspace] = useState(() => () => {});
+  
   // Values to be provided to consumers
   const value = {
     workspace: currentWorkspace,
@@ -24,6 +27,10 @@ export function PageProvider({ children }) {
     setActivePageId,
     activePageTitle,
     setActivePageTitle,
+    
+    // Refresh function
+    refreshWorkspace,
+    setRefreshWorkspace,
     
     // Helper method to update both the current page and title
     updateCurrentPage: (page) => {

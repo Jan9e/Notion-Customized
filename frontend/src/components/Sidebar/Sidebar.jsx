@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import TreeItem from './TreeItem'
+import { usePage } from '../../contexts/PageContext'
 
 export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onToggleCollapse }) {
   const navigate = useNavigate()
@@ -21,29 +22,10 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
   const [archivedPages, setArchivedPages] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const { setRefreshWorkspace } = usePage()
 
-  useEffect(() => {
-    loadWorkspaceContent()
-    loadWorkspaceDetails()
-  }, [workspaceId])
-
-  useEffect(() => {
-    if (showArchived && workspaceId) {
-      fetchArchivedPages()
-    }
-  }, [showArchived, workspaceId])
-
-  const loadWorkspaceDetails = async () => {
-    try {
-      const data = await api.getWorkspace(workspaceId)
-      setWorkspace(data)
-    } catch (error) {
-      console.error('Error loading workspace details:', error)
-      setError('Failed to load workspace details')
-    }
-  }
-
-  const loadWorkspaceContent = async () => {
+  // Move loadWorkspaceContent definition before useEffect and memoize it
+  const loadWorkspaceContent = useCallback(async () => {
     try {
       setIsLoading(true)
       const { pages } = await api.getWorkspaceContent(workspaceId)
@@ -66,7 +48,33 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [workspaceId])
+
+  // Define loadWorkspaceDetails with useCallback as well
+  const loadWorkspaceDetails = useCallback(async () => {
+    try {
+      const data = await api.getWorkspace(workspaceId)
+      setWorkspace(data)
+    } catch (error) {
+      console.error('Error loading workspace details:', error)
+      setError('Failed to load workspace details')
+    }
+  }, [workspaceId])
+
+  useEffect(() => {
+    loadWorkspaceContent()
+    loadWorkspaceDetails()
+  }, [loadWorkspaceContent, loadWorkspaceDetails])
+
+  useEffect(() => {
+    if (showArchived && workspaceId) {
+      fetchArchivedPages()
+    }
+  }, [showArchived, workspaceId])
+
+  useEffect(() => {
+    setRefreshWorkspace(() => loadWorkspaceContent)
+  }, [setRefreshWorkspace, loadWorkspaceContent])
 
   const fetchArchivedPages = async () => {
     try {

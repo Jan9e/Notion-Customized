@@ -3,10 +3,18 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableCell from '@tiptap/extension-table-cell'
+import TableHeader from '@tiptap/extension-table-header'
+import Underline from '@tiptap/extension-underline'
+import Strike from '@tiptap/extension-strike'
 import Mention from '@tiptap/extension-mention'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import tippy from 'tippy.js'
 import './Editor.css'
+import { debounce } from 'lodash'
+import { api } from '../../lib/api'
 
 // Define our slash commands with icons
 const slashCommands = [
@@ -138,7 +146,7 @@ const slashCommands = [
   },
 ]
 
-const Editor = ({ content = '', onUpdate = () => {} }) => {
+const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
   const [showSlashCommands, setShowSlashCommands] = useState(false)
   const [slashCommandsPosition, setSlashCommandsPosition] = useState(null)
   const [slashCommandsRange, setSlashCommandsRange] = useState(null)
@@ -146,6 +154,8 @@ const Editor = ({ content = '', onUpdate = () => {} }) => {
   const editorRef = useRef(null)
   const [showPopup, setShowPopup] = useState(false)
   const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 })
+  const [isSaving, setIsSaving] = useState(false)
+  const [lastSavedAt, setLastSavedAt] = useState(null)
 
   const handleSlashCommand = (command, range) => {
     if (command && command.action && editor) {
@@ -160,6 +170,32 @@ const Editor = ({ content = '', onUpdate = () => {} }) => {
       setShowSlashCommands(false)
     }
   }
+
+  // Create a debounced save function
+  const debouncedSave = useCallback(
+    debounce(async (pageId, updates) => {
+      try {
+        setIsSaving(true);
+        await api.updatePage(pageId, updates);
+        setLastSavedAt(new Date());
+      } catch (error) {
+        console.error('Failed to save page:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 1000),
+    []
+  );
+
+  // Handle content updates
+  const handleUpdate = useCallback(({ editor }) => {
+    const content = editor.getHTML();
+    onUpdate(content);
+    
+    if (pageId) {
+      debouncedSave(pageId, { content });
+    }
+  }, [onUpdate, pageId, debouncedSave]);
 
   const editor = useEditor({
     extensions: [
@@ -181,11 +217,30 @@ const Editor = ({ content = '', onUpdate = () => {} }) => {
           },
         },
       }),
+      Placeholder.configure({
+        placeholder: 'Press / for commands...',
+      }),
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+        HTMLAttributes: {
+          class: 'task-item',
+        },
+      }),
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: {
+          class: 'editor-table',
+        },
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      Underline,
+      Strike,
     ],
     content,
-    onUpdate: ({ editor }) => {
-      onUpdate(editor.getHTML())
-    },
+    onUpdate: handleUpdate,
     editorProps: {
       attributes: {
         class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none',
@@ -284,6 +339,70 @@ const Editor = ({ content = '', onUpdate = () => {} }) => {
 
   return (
     <div className="editor-container">
+      {editor && (
+        <BubbleMenu 
+          className="bubble-menu" 
+          tippyOptions={{ 
+            duration: 100,
+            animation: 'fade',
+            placement: 'top',
+            arrow: false,
+            offset: [0, 10]
+          }} 
+          editor={editor}
+        >
+          <button
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            className={`bubble-menu-button ${editor.isActive('bold') ? 'is-active' : ''}`}
+            title="Bold (Ctrl+B)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            className={`bubble-menu-button ${editor.isActive('italic') ? 'is-active' : ''}`}
+            title="Italic (Ctrl+I)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            className={`bubble-menu-button ${editor.isActive('underline') ? 'is-active' : ''}`}
+            title="Underline (Ctrl+U)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+            className={`bubble-menu-button ${editor.isActive('strike') ? 'is-active' : ''}`}
+            title="Strikethrough"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="5" y1="12" x2="19" y2="12"/><path d="M16 6C16 6 14.5 4 12 4C9.5 4 7 6 7 8C7 10 9 11 12 11"/><path d="M12 13C15 13 17 14 17 16C17 18 14.5 20 12 20C9.5 20 8 18 8 18"/></svg>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            className={`bubble-menu-button ${editor.isActive('heading', { level: 1 }) ? 'is-active' : ''}`}
+            title="Heading 1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="m17 12 3-2v8"/></svg>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            className={`bubble-menu-button ${editor.isActive('heading', { level: 2 }) ? 'is-active' : ''}`}
+            title="Heading 2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1"/></svg>
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+            className={`bubble-menu-button ${editor.isActive('heading', { level: 3 }) ? 'is-active' : ''}`}
+            title="Heading 3"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M17.5 10.5c1.7-1 3.5 0 3.5 1.5a2 2 0 0 1-2 2"/><path d="M17 17.5c2 1.5 4 .3 4-1.5a2 2 0 0 0-2-2"/></svg>
+          </button>
+        </BubbleMenu>
+      )}
+      
       <EditorContent editor={editor} className="editor-content" ref={editorRef} />
       
       {/* Slash commands popup */}
