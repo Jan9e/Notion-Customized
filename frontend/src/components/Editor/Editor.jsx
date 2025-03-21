@@ -252,16 +252,21 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
         if (key === '/') {
           // Show the popup
           setShowSlashCommands(true)
-          // Calculate position based on cursor position
+          
+          // Get the current cursor position
           const { selection } = view.state
           const { $from } = selection
           
-          // Calculate the current cursor position in document coordinates
+          // Get DOM coordinates at cursor position
           const coords = view.coordsAtPos($from.pos)
           
+          // Get editor element for relative positioning
+          const editorElement = view.dom.getBoundingClientRect()
+          
+          // Calculate position relative to editor
           setSlashCommandsPosition({
-            left: coords.left,
-            top: coords.bottom + 5, // Position right below cursor with small offset
+            left: coords.left - editorElement.left,
+            top: coords.bottom - editorElement.top + 10,
           })
           
           // Store the range to delete the slash later
@@ -409,11 +414,20 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
       {showSlashCommands && slashCommandsPosition && (
         <div 
           ref={menuRef}
-          className="slash-command-list absolute"
+          className="slash-command-list"
           style={{
+            position: 'absolute',
             left: `${slashCommandsPosition.left}px`,
             top: `${slashCommandsPosition.top}px`,
             zIndex: 9999,
+            maxHeight: '300px',
+            overflowY: 'auto',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            borderRadius: '6px',
+            border: '1px solid #e2e8f0',
+            backgroundColor: 'white',
+            width: '280px',
+            transform: 'translateX(-20px)' // Adjust horizontal position if needed
           }}
         >
           <div className="slash-command-header">Basic blocks</div>
