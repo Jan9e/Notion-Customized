@@ -15,6 +15,9 @@ import tippy from 'tippy.js'
 import './Editor.css'
 import { debounce } from 'lodash'
 import { api } from '../../lib/api'
+import { Extension } from '@tiptap/core'
+import { Plugin, PluginKey } from 'prosemirror-state'
+import { findParentNode } from '@tiptap/core'
 
 // Define our slash commands with icons
 const slashCommands = [
@@ -144,6 +147,31 @@ const slashCommands = [
         .run()
     },
   },
+  {
+    id: 'table',
+    label: 'Table',
+    description: 'Add a table',
+    icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-table"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>',
+    action: ({ editor, range }) => {
+      if (!editor) return;
+      
+      if (range) {
+        editor.chain().focus().deleteRange(range).run();
+      }
+      
+      // Insert a table using TipTap's API
+      editor.chain().focus().insertTable({
+        rows: 2,
+        cols: 2,
+        withHeaderRow: true
+      }).run();
+      
+      // Focus first cell
+      setTimeout(() => {
+        editor.chain().focus().selectCell(0, 0).run();
+      }, 50);
+    },
+  },
 ]
 
 const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
@@ -156,6 +184,8 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
   const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 })
   const [isSaving, setIsSaving] = useState(false)
   const [lastSavedAt, setLastSavedAt] = useState(null)
+  const [showTableControls, setShowTableControls] = useState(false)
+  const [tableControlsPosition, setTableControlsPosition] = useState({ top: 0, left: 0 })
 
   const handleSlashCommand = (command, range) => {
     if (command && command.action && editor) {
@@ -166,7 +196,11 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
           to: range.from         // End at the current position
         }).run()
       }
-      command.action({ editor, range })
+      
+      // Execute the command action with the editor and range
+      command.action({ editor, range: null })
+      
+      // Hide the slash commands menu
       setShowSlashCommands(false)
     }
   }
@@ -228,14 +262,18 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
         },
       }),
       Table.configure({
-        resizable: true,
+        resizable: false,
+        allowTableNodeSelection: false,
         HTMLAttributes: {
           class: 'editor-table',
         },
+        handleWidth: 0,
+        handleDuration: 0,
+        cellMinWidth: 80
       }),
-      TableRow,
-      TableHeader,
-      TableCell,
+      TableRow.configure(),
+      TableHeader.configure(),
+      TableCell.configure(),
       Underline,
       Strike,
     ],
@@ -313,6 +351,37 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
         }
         
         return false
+      },
+      handleClick: (view, pos, event) => {
+        const { state } = view
+        const $pos = state.doc.resolve(pos)
+        let depth = $pos.depth
+        let isInTable = false
+
+        // Traverse up the node tree to find if we're inside a table
+        while (depth > 0 && !isInTable) {
+          const node = $pos.node(depth)
+          if (node.type.name === 'table') {
+            isInTable = true
+            break
+          }
+          depth--
+        }
+
+        if (isInTable) {
+          // Get coordinates for the click position
+          const coords = view.coordsAtPos(pos)
+          const editorRect = view.dom.getBoundingClientRect()
+
+          // Position the controls above the cursor
+          setTableControlsPosition({
+            left: coords.left - editorRect.left,
+            top: coords.top - editorRect.top - 40 // Position above the cursor
+          })
+          setShowTableControls(true)
+        } else {
+          setShowTableControls(false)
+        }
       },
     },
   })
@@ -427,7 +496,7 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
             border: '1px solid #e2e8f0',
             backgroundColor: 'white',
             width: '280px',
-            transform: 'translateX(-20px)' // Adjust horizontal position if needed
+            transform: 'translateX(-20px)'
           }}
         >
           <div className="slash-command-header">Basic blocks</div>
@@ -449,30 +518,84 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
         </div>
       )}
       
-      {/* Add keyboard shortcut info */}
-      <div className="editor-shortcuts-info">
-        <p>Tip: Use <kbd>Tab</kbd> to indent list items and <kbd>Shift+Tab</kbd> to unindent</p>
-      </div>
-      
-      {/* Temporary test button for lists */}
-      <div className="fixed bottom-4 right-4 flex gap-2">
-        <button 
-          className="bg-green-500 text-white p-2 rounded shadow-lg hover:bg-green-600 transition-colors text-xs"
-          onClick={() => editor && editor.commands.toggleBulletList()}
-          title="Test Bullet List"
+      {/* Floating Table Controls */}
+      {showTableControls && editor && (
+        <div 
+          className="table-controls-menu"
+          style={{
+            position: 'absolute',
+            left: `${tableControlsPosition.left}px`,
+            top: `${tableControlsPosition.top}px`,
+            zIndex: 50,
+            display: 'flex',
+            gap: '4px',
+            background: 'white',
+            padding: '4px',
+            borderRadius: '6px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            border: '1px solid #e2e8f0'
+          }}
         >
-          Bullet List
-        </button>
-        <button 
-          className="bg-blue-500 text-white p-2 rounded shadow-lg hover:bg-blue-600 transition-colors text-xs"
-          onClick={() => editor && editor.commands.toggleOrderedList()}
-          title="Test Numbered List"
-        >
-          Numbered List
-        </button>
-      </div>
+          <button
+            className="table-action-button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              editor.chain().focus().addRowAfter().run()
+            }}
+            title="Add Row"
+          >
+            Add Row
+          </button>
+          <button
+            className="table-action-button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              editor.chain().focus().addColumnAfter().run()
+            }}
+            title="Add Column"
+          >
+            Add Column
+          </button>
+          <button
+            className="table-action-button remove-button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              editor.chain().focus().deleteRow().run()
+            }}
+            title="Remove Row"
+          >
+            Remove Row
+          </button>
+          <button
+            className="table-action-button remove-button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              editor.chain().focus().deleteColumn().run()
+            }}
+            title="Remove Column"
+          >
+            Remove Column
+          </button>
+          <button
+            className="table-action-button delete-button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              editor.chain().focus().deleteTable().run()
+              setShowTableControls(false)
+            }}
+            title="Delete Table"
+          >
+            Delete
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
-export default Editor 
+export default Editor
