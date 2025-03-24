@@ -365,9 +365,25 @@
   width: 120px;
 }
 
+/* Header cell styling */
 .ProseMirror table th {
   background-color: #f8fafc;
   font-weight: 600;
+  color: #1f2937;
+}
+
+/* First row header styling */
+.ProseMirror table tr:first-child th {
+  border-bottom: 2px solid #e2e8f0;
+}
+
+/* First column header styling */
+.ProseMirror table tr td[data-header="true"],
+.ProseMirror table tr th:first-child {
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #1f2937;
+  border-right: 2px solid #e2e8f0;
 }
 
 .ProseMirror table p {
@@ -721,6 +737,9 @@
 
 .table-controls-menu {
   transition: all 0.2s ease;
+  position: absolute;
+  z-index: 50;
+  transform: none;
 }
 
 .table-controls-menu .table-action-button {
@@ -756,4 +775,125 @@
 .table-controls-menu .table-action-button.delete-button:hover {
   background: #fff5f5;
   border-color: #fc8181;
+}
+
+.table-dropdown {
+  position: relative;
+  display: inline-block;
+  min-width: 90px;
+}
+
+.table-dropdown-trigger {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-bottom: none;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: #37352f;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  position: relative;
+  font-weight: 500;
+  box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.table-dropdown-trigger:hover {
+  background-color: #f1f5f9;
+  color: #1a1a1a;
+}
+
+.table-dropdown-trigger::after {
+  content: "↓";
+  margin-left: 4px;
+  font-size: 12px;
+  opacity: 0.7;
+  position: relative;
+  top: 1px;
+}
+
+.ProseMirror table {
+  margin-top: 0 !important;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.table-controls-menu {
+  transition: all 0.2s ease;
+  position: absolute;
+  z-index: 50;
+  transform: none;
+  margin-top: -1px;
+}
+
+.table-dropdown {
+  position: relative;
+  display: inline-block;
+  min-width: 100px;
+}
+
+.table-dropdown-content {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: rgba(15, 15, 15, 0.05) 0px 0px 0px 1px,
+              rgba(15, 15, 15, 0.1) 0px 3px 6px,
+              rgba(15, 15, 15, 0.2) 0px 9px 24px;
+  min-width: 180px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  margin-top: 4px;
+}
+
+.table-dropdown-content .table-action-button {
+  height: 28px;
+  padding: 6px 12px;
+  background: transparent;
+  color: #37352f;
+  font-size: 13px;
+  font-weight: normal;
+  border: none;
+  border-radius: 3px;
+  text-align: left;
+  transition: all 0.1s ease;
+  margin: 1px 0;
+  width: 100%;
+}
+
+.table-dropdown-content .table-action-button:hover {
+  background-color: rgba(55, 53, 47, 0.08);
+}
+
+.table-dropdown-content .table-action-button.remove-button {
+  color: #37352f;
+}
+
+.table-dropdown-content .table-action-button.remove-button:hover {
+  background-color: rgba(55, 53, 47, 0.08);
+}
+
+.table-dropdown-content .table-action-button.delete-button {
+  color: #eb5757;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+.table-dropdown-content .table-action-button.delete-button:hover {
+  background-color: #fff1f1;
 } 

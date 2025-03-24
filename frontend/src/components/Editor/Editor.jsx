@@ -186,6 +186,7 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
   const [lastSavedAt, setLastSavedAt] = useState(null)
   const [showTableControls, setShowTableControls] = useState(false)
   const [tableControlsPosition, setTableControlsPosition] = useState({ top: 0, left: 0 })
+  const [isTableDropdownOpen, setIsTableDropdownOpen] = useState(false)
 
   const handleSlashCommand = (command, range) => {
     if (command && command.action && editor) {
@@ -357,30 +358,40 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
         const $pos = state.doc.resolve(pos)
         let depth = $pos.depth
         let isInTable = false
+        let tableNode = null
+        let tablePos = 0
 
         // Traverse up the node tree to find if we're inside a table
         while (depth > 0 && !isInTable) {
           const node = $pos.node(depth)
           if (node.type.name === 'table') {
             isInTable = true
+            tableNode = node
+            tablePos = $pos.before(depth)
             break
           }
           depth--
         }
 
-        if (isInTable) {
-          // Get coordinates for the click position
-          const coords = view.coordsAtPos(pos)
+        if (isInTable && tableNode) {
+          // Get coordinates for the table start position
+          const tableCoords = view.coordsAtPos(tablePos)
           const editorRect = view.dom.getBoundingClientRect()
-
-          // Position the controls above the cursor
+          
+          // Get the table element to calculate its width
+          const tableElement = view.nodeDOM(tablePos)
+          const tableWidth = tableElement ? tableElement.offsetWidth : 0
+          
+          // Calculate center position and adjust top position
           setTableControlsPosition({
-            left: coords.left - editorRect.left,
-            top: coords.top - editorRect.top - 40 // Position above the cursor
+            left: tableCoords.left - editorRect.left + (tableWidth / 2) - 45, // Center the controls (90px width / 2 = 45)
+            top: tableCoords.top - editorRect.top // Position directly at table's top edge
           })
           setShowTableControls(true)
+          setIsTableDropdownOpen(false) // Close dropdown when clicking elsewhere in table
         } else {
           setShowTableControls(false)
+          setIsTableDropdownOpen(false)
         }
       },
     },
@@ -527,71 +538,133 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
             left: `${tableControlsPosition.left}px`,
             top: `${tableControlsPosition.top}px`,
             zIndex: 50,
-            display: 'flex',
-            gap: '4px',
-            background: 'white',
-            padding: '4px',
-            borderRadius: '6px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            border: '1px solid #e2e8f0'
           }}
         >
-          <button
-            className="table-action-button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              editor.chain().focus().addRowAfter().run()
-            }}
-            title="Add Row"
-          >
-            Add Row
-          </button>
-          <button
-            className="table-action-button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              editor.chain().focus().addColumnAfter().run()
-            }}
-            title="Add Column"
-          >
-            Add Column
-          </button>
-          <button
-            className="table-action-button remove-button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              editor.chain().focus().deleteRow().run()
-            }}
-            title="Remove Row"
-          >
-            Remove Row
-          </button>
-          <button
-            className="table-action-button remove-button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              editor.chain().focus().deleteColumn().run()
-            }}
-            title="Remove Column"
-          >
-            Remove Column
-          </button>
-          <button
-            className="table-action-button delete-button"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              editor.chain().focus().deleteTable().run()
-              setShowTableControls(false)
-            }}
-            title="Delete Table"
-          >
-            Delete
-          </button>
+          <div className="table-dropdown">
+            <button
+              className="table-dropdown-trigger"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setIsTableDropdownOpen(!isTableDropdownOpen)
+              }}
+            >
+              Options
+            </button>
+            {isTableDropdownOpen && (
+              <div className="table-dropdown-content">
+                <button
+                  className="table-action-button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    editor.chain().focus().addRowAfter().run()
+                    setIsTableDropdownOpen(false)
+                  }}
+                  title="Add Row"
+                >
+                  Add Row
+                </button>
+                <button
+                  className="table-action-button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    editor.chain().focus().addColumnAfter().run()
+                    setIsTableDropdownOpen(false)
+                  }}
+                  title="Add Column"
+                >
+                  Add Column
+                </button>
+                <button
+                  className="table-action-button remove-button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    editor.chain().focus().deleteRow().run()
+                    setIsTableDropdownOpen(false)
+                  }}
+                  title="Remove Row"
+                >
+                  Remove Row
+                </button>
+                <button
+                  className="table-action-button remove-button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    editor.chain().focus().deleteColumn().run()
+                    setIsTableDropdownOpen(false)
+                  }}
+                  title="Remove Column"
+                >
+                  Remove Column
+                </button>
+                <button
+                  className="table-action-button delete-button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    editor.chain().focus().deleteTable().run()
+                    setShowTableControls(false)
+                    setIsTableDropdownOpen(false)
+                  }}
+                  title="Delete Table"
+                >
+                  Delete Table
+                </button>
+                <button
+                  className="table-action-button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    
+                    // Find the table node
+                    const { state } = editor.view
+                    const { doc, tr, schema } = state
+                    
+                    doc.descendants((node, pos) => {
+                      if (node.type.name === 'table') {
+                        // Check if first column is currently header
+                        const firstCell = node.firstChild.firstChild
+                        const makeHeader = firstCell.type.name !== 'tableHeader'
+                        
+                        // Get number of rows and first column index
+                        const numRows = node.childCount
+                        let currentPos = pos + 1 // Skip the table node itself
+                        
+                        // For each row
+                        for (let row = 0; row < numRows; row++) {
+                          const rowNode = node.child(row)
+                          if (rowNode.firstChild) {
+                            const firstCellPos = currentPos + 1 // Skip the row node
+                            const firstCell = rowNode.firstChild
+                            
+                            // Create a new node of the desired type with the same content
+                            const newNode = makeHeader 
+                              ? schema.nodes.tableHeader.create(firstCell.attrs, firstCell.content)
+                              : schema.nodes.tableCell.create(firstCell.attrs, firstCell.content)
+                            
+                            // Replace the node
+                            tr.replaceWith(firstCellPos, firstCellPos + firstCell.nodeSize, newNode)
+                          }
+                          currentPos += rowNode.nodeSize
+                        }
+                        
+                        editor.view.dispatch(tr)
+                        return false // Stop after finding the table
+                      }
+                    })
+                    
+                    setIsTableDropdownOpen(false)
+                  }}
+                >
+                  Toggle First Column Header
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
