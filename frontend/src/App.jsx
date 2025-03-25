@@ -5,6 +5,7 @@ import SignupPage from "./pages/SignupPage"
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
+import NewPage from './pages/NewPage';
 import { ThemeProvider } from "./components/theme-provider"
 import { AuthProvider } from './contexts/AuthContext';
 import { PageProvider } from './contexts/PageContext';
@@ -34,6 +35,7 @@ function App() {
                   </PrivateRoute>
                 }
               >
+                <Route path="new" element={<NewPage />} />
                 <Route path="page/:pageId" element={<PageEditor />} />
               </Route>
 

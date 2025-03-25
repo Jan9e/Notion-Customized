@@ -138,6 +138,7 @@ export default function DashboardPage() {
   }
 
   const isPageRoute = location.pathname.includes('/dashboard/page/')
+  const isNewPageRoute = location.pathname.includes('/dashboard/new')
 
   return (
     <div className="h-screen flex relative">
@@ -230,7 +231,7 @@ export default function DashboardPage() {
 
         {/* Content Area */}
         <div className="flex-1 overflow-auto bg-white">
-          {isPageRoute ? (
+          {isPageRoute || isNewPageRoute ? (
             <Outlet />
           ) : (
             <div className="p-4 sm:p-6 lg:p-8">

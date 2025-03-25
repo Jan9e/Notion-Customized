@@ -23,6 +23,7 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const { setRefreshWorkspace } = usePage()
+  const [isCreatingPage, setIsCreatingPage] = useState(false)
 
   // Move loadWorkspaceContent definition before useEffect and memoize it
   const loadWorkspaceContent = useCallback(async () => {
@@ -116,19 +117,12 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
     return tree
   }
 
-  const handleCreatePage = async () => {
-    try {
-      const newPage = await api.createPage({
-        title: 'Untitled',
-        workspaceId,
-      })
-      navigate(`/dashboard/page/${newPage.id}`)
-      if (onCloseMobile) onCloseMobile()
-      loadWorkspaceContent()
-    } catch (error) {
-      console.error('Error creating page:', error)
-      setError('Failed to create page')
-    }
+  // Define a new function to handle the "New Page" button click
+  const handleNewPage = () => {
+    // Navigate to template selection view
+    navigate('/dashboard/new')
+    // Close mobile sidebar if needed
+    onCloseMobile?.()
   }
 
   if (isLoading) {
@@ -165,8 +159,12 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
         <div className="flex items-center space-x-2 ml-auto">
           {!isCollapsed && (
             <button
-              onClick={handleCreatePage}
-              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors duration-150 group"
+              onClick={handleNewPage}
+              disabled={isCreatingPage}
+              className={`
+                p-1.5 hover:bg-gray-100 rounded-md transition-colors duration-150 group
+                ${isCreatingPage ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
               title="New page"
             >
               <Plus className="h-4 w-4 text-gray-600 group-hover:text-gray-900" />
@@ -221,7 +219,7 @@ export default function Sidebar({ workspaceId, onCloseMobile, isCollapsed, onTog
           <div className="flex items-center justify-between px-2 py-1">
             <span className="text-sm font-medium text-gray-500">Pages</span>
             <button
-              onClick={handleCreatePage}
+              onClick={handleNewPage}
               className="p-1 hover:bg-gray-100 rounded transition-colors"
               title="Create new page"
             >
