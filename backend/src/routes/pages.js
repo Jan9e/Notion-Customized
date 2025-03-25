@@ -225,6 +225,46 @@ router.delete('/:id/permanent', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.userId;
 
+    // Get all descendant pages recursively
+    const getAllDescendants = async (pageId) => {
+      const children = await prisma.page.findMany({
+        where: {
+          parentId: pageId,
+          userId,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      let descendants = [];
+      for (const child of children) {
+        descendants.push(child.id);
+        descendants = descendants.concat(await getAllDescendants(child.id));
+      }
+      return descendants;
+    };
+
+    // Get all descendant page IDs
+    const descendantIds = await getAllDescendants(id);
+
+    // Mark all descendant pages as deleted
+    if (descendantIds.length > 0) {
+      await prisma.page.updateMany({
+        where: {
+          id: {
+            in: descendantIds,
+          },
+          userId,
+        },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+    }
+
+    // Mark the parent page as deleted
     const page = await prisma.page.update({
       where: {
         id,
@@ -235,7 +275,7 @@ router.delete('/:id/permanent', authenticateToken, async (req, res) => {
       },
     });
 
-    res.json({ message: 'Page permanently deleted' });
+    res.json({ message: 'Page and all nested pages permanently deleted' });
   } catch (error) {
     console.error('Error deleting page:', error);
     res.status(500).json({ message: 'Error deleting page' });

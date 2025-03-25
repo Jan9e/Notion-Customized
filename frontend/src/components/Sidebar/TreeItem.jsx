@@ -143,13 +143,29 @@ export default function TreeItem({
 
   const handleDelete = async (e) => {
     e.stopPropagation()
-    if (!confirm('Are you sure you want to permanently delete this page?')) return
+    const hasChildren = item.children && item.children.length > 0
+    const confirmMessage = hasChildren 
+      ? 'Are you sure you want to permanently delete this page and all its nested pages?' 
+      : 'Are you sure you want to permanently delete this page?'
+    
+    if (!confirm(confirmMessage)) return
 
     try {
+      // First, recursively delete all child pages
+      if (hasChildren) {
+        for (const child of item.children) {
+          await api.permanentlyDeletePage(child.id)
+        }
+      }
+      
+      // Then delete the parent page
       await api.permanentlyDeletePage(item.id)
+      
+      // Navigate away if we're on this page or any of its children
       if (location.pathname.includes(`/dashboard/page/${item.id}`)) {
         navigate('/dashboard')
       }
+      
       onRefresh?.()
     } catch (error) {
       console.error('Error deleting page:', error)
@@ -161,12 +177,12 @@ export default function TreeItem({
     <>
       <div
         className={`
-          group flex items-center py-1 px-2 rounded-md hover:bg-gray-100 cursor-pointer relative
+          group flex items-center py-0.5 px-2 rounded-md hover:bg-gray-100 cursor-pointer relative
           ${isDragging ? 'opacity-50' : ''}
           ${isOver ? 'bg-blue-50' : ''}
           ${location.pathname.includes(item.id) ? 'bg-gray-100' : ''}
         `}
-        style={{ paddingLeft: `${depth * 1.5 + 0.5}rem` }}
+        style={{ paddingLeft: `${depth * 1 + 0.5}rem` }}
         onClick={handleClick}
         draggable
         onDragStart={handleDragStart}
@@ -242,7 +258,7 @@ export default function TreeItem({
       </div>
 
       {isExpanded && item.children?.length > 0 && (
-        <div className="ml-4">
+        <div className="ml-2">
           {item.children.map(child => (
             <TreeItem
               key={child.id}
