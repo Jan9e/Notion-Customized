@@ -114,12 +114,26 @@ export default function TreeItem({
     }
   }
 
+  const handleRestore = async (e) => {
+    e.stopPropagation()
+    try {
+      await api.restorePage(item.id)
+      onRefresh?.()
+    } catch (error) {
+      console.error('Error restoring page:', error)
+      alert('Failed to restore page')
+    }
+  }
+
   const handleArchive = async (e) => {
     e.stopPropagation()
     if (!confirm('Are you sure you want to archive this page?')) return
 
     try {
       await api.updatePage(item.id, { isArchived: true })
+      if (location.pathname.includes(`/dashboard/page/${item.id}`)) {
+        navigate('/dashboard')
+      }
       onRefresh?.()
     } catch (error) {
       console.error('Error archiving page:', error)
@@ -192,11 +206,13 @@ export default function TreeItem({
           </button>
           
           <button
-            onClick={handleArchive}
+            onClick={item.isArchived ? handleRestore : handleArchive}
             className="p-1 hover:bg-gray-200 rounded transition-colors"
-            title="Archive"
+            title={item.isArchived ? "Restore from archive" : "Archive"}
           >
-            <Archive className="h-3 w-3 text-gray-500" />
+            <Archive 
+              className={`h-3 w-3 ${item.isArchived ? 'text-blue-500' : 'text-gray-500'}`}
+            />
           </button>
           
           <div className="relative" ref={dropdownRef}>

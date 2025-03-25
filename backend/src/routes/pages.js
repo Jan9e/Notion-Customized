@@ -271,7 +271,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content, icon } = req.body;
+    const { title, content, icon, isArchived } = req.body;
     const userId = req.user.userId;
 
     const page = await prisma.page.update({
@@ -283,6 +283,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
         title,
         content,
         icon,
+        isArchived: isArchived !== undefined ? isArchived : undefined,
       },
     });
 

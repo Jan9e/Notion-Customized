@@ -149,7 +149,7 @@ export const api = {
     }
   },
 
-  async updatePage(id, { title, content }) {
+  async updatePage(id, { title, content, icon, isArchived }) {
     try {
       const response = await fetch(`${API_BASE_URL}/pages/${id}`, {
         method: 'PUT',
@@ -157,6 +157,8 @@ export const api = {
         body: JSON.stringify({
           title,
           content,
+          icon,
+          isArchived
         }),
       });
       const data = await response.json();

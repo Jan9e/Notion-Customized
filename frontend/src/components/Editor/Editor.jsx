@@ -26,11 +26,10 @@ const slashCommands = [
     label: 'Text',
     description: 'Just start writing with plain text',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-text"><path d="M17.5 10H6.5"/><path d="M6 14L8 14"/><path d="M12.5 14L16.5 14"/><path d="M21 12C21 16.97 16.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z"/></svg>',
-    action: ({ editor, range }) => {
+    action: ({ editor }) => {
       editor
         .chain()
         .focus()
-        .deleteRange(range)
         .setParagraph()
         .run()
     },
@@ -40,11 +39,10 @@ const slashCommands = [
     label: 'Heading 1',
     description: 'Large section heading',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-heading-1"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="m17 12 3-2v8"/></svg>',
-    action: ({ editor, range }) => {
+    action: ({ editor }) => {
       editor
         .chain()
         .focus()
-        .deleteRange(range)
         .setHeading({ level: 1 })
         .run()
     },
@@ -54,11 +52,10 @@ const slashCommands = [
     label: 'Heading 2',
     description: 'Medium section heading',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-heading-2"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1"/></svg>',
-    action: ({ editor, range }) => {
+    action: ({ editor }) => {
       editor
         .chain()
         .focus()
-        .deleteRange(range)
         .setHeading({ level: 2 })
         .run()
     },
@@ -68,11 +65,10 @@ const slashCommands = [
     label: 'Heading 3',
     description: 'Small section heading',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-heading-3"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M17.5 10.5c1.7-1 3.5 0 3.5 1.5a2 2 0 0 1-2 2"/><path d="M17 17.5c2 1.5 4 .3 4-1.5a2 2 0 0 0-2-2"/></svg>',
-    action: ({ editor, range }) => {
+    action: ({ editor }) => {
       editor
         .chain()
         .focus()
-        .deleteRange(range)
         .setHeading({ level: 3 })
         .run()
     },
@@ -82,11 +78,10 @@ const slashCommands = [
     label: 'Bullet List',
     description: 'Create a bullet list (use Tab to nest)',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-list"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>',
-    action: ({ editor, range }) => {
+    action: ({ editor }) => {
       editor
         .chain()
         .focus()
-        .deleteRange(range)
         .toggleBulletList()
         .run()
     },
@@ -96,11 +91,10 @@ const slashCommands = [
     label: 'Numbered List',
     description: 'Create a numbered list (use Tab to nest)',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-list-ordered"><line x1="10" x2="21" y1="6" y2="6"/><line x1="10" x2="21" y1="12" y2="12"/><line x1="10" x2="21" y1="18" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>',
-    action: ({ editor, range }) => {
+    action: ({ editor }) => {
       editor
         .chain()
         .focus()
-        .deleteRange(range)
         .toggleOrderedList()
         .run()
     },
@@ -110,11 +104,10 @@ const slashCommands = [
     label: 'Code Block',
     description: 'Add a code block',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-code"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
-    action: ({ editor, range }) => {
+    action: ({ editor }) => {
       editor
         .chain()
         .focus()
-        .deleteRange(range)
         .setCodeBlock()
         .run()
     },
@@ -124,12 +117,11 @@ const slashCommands = [
     label: 'Quote',
     description: 'Add a quote block',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-quote"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>',
-    action: ({ editor, range }) => {
+    action: ({ editor }) => {
       editor
         .chain()
         .focus()
-        .deleteRange(range)
-        .insertContent('<blockquote><p>' + (editor.state.selection.empty ? '' : editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to)) + '</p></blockquote>')
+        .toggleBlockquote()
         .run()
     },
   },
@@ -138,11 +130,10 @@ const slashCommands = [
     label: 'Task List',
     description: 'Add a task list',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-square"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
-    action: ({ editor, range }) => {
+    action: ({ editor }) => {
       editor
         .chain()
         .focus()
-        .deleteRange(range)
         .toggleTaskList()
         .run()
     },
@@ -190,16 +181,26 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
 
   const handleSlashCommand = (command, range) => {
     if (command && command.action && editor) {
+      // Create a new transaction
+      const { state } = editor.view
+      const { tr } = state
+      
       // If we have a valid range, delete the slash character first
       if (range) {
-        editor.chain().focus().deleteRange({
-          from: range.from - 1, // Start from the slash character position
-          to: range.from         // End at the current position
-        }).run()
+        editor.chain()
+          .focus()
+          .deleteRange({
+            from: range.from - 1, // Start from the slash character position
+            to: range.to         // End at the current position
+          })
+          .run()
       }
       
       // Execute the command action with the editor and range
-      command.action({ editor, range: null })
+      command.action({ editor, range })
+      
+      // Ensure the editor maintains focus
+      editor.commands.focus()
       
       // Hide the slash commands menu
       setShowSlashCommands(false)
@@ -553,6 +554,7 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
             </button>
             {isTableDropdownOpen && (
               <div className="table-dropdown-content">
+                <div className="table-dropdown-section">Add & Remove</div>
                 <button
                   className="table-action-button"
                   onClick={(e) => {
@@ -601,21 +603,9 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
                 >
                   Remove Column
                 </button>
+                <div className="table-dropdown-section">Layout</div>
                 <button
-                  className="table-action-button delete-button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    editor.chain().focus().deleteTable().run()
-                    setShowTableControls(false)
-                    setIsTableDropdownOpen(false)
-                  }}
-                  title="Delete Table"
-                >
-                  Delete Table
-                </button>
-                <button
-                  className="table-action-button"
+                  className="table-action-button header-button"
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
@@ -626,16 +616,19 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
                     
                     doc.descendants((node, pos) => {
                       if (node.type.name === 'table') {
-                        // Check if first column is currently header
-                        const firstCell = node.firstChild.firstChild
-                        const makeHeader = firstCell.type.name !== 'tableHeader'
+                        // Check if first column (excluding first row) is currently header
+                        const secondRowFirstCell = node.child(1)?.firstChild // Get first cell of second row
+                        const makeHeader = secondRowFirstCell && secondRowFirstCell.type.name !== 'tableHeader'
                         
-                        // Get number of rows and first column index
+                        // Get number of rows
                         const numRows = node.childCount
                         let currentPos = pos + 1 // Skip the table node itself
                         
-                        // For each row
-                        for (let row = 0; row < numRows; row++) {
+                        // Skip first row since it should remain as header
+                        currentPos += node.firstChild.nodeSize
+                        
+                        // For each row after the first row
+                        for (let row = 1; row < numRows; row++) {
                           const rowNode = node.child(row)
                           if (rowNode.firstChild) {
                             const firstCellPos = currentPos + 1 // Skip the row node
@@ -660,7 +653,20 @@ const Editor = ({ content = '', onUpdate = () => {}, pageId }) => {
                     setIsTableDropdownOpen(false)
                   }}
                 >
-                  Toggle First Column Header
+                  Column Header
+                </button>
+                <button
+                  className="table-action-button delete-button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    editor.chain().focus().deleteTable().run()
+                    setShowTableControls(false)
+                    setIsTableDropdownOpen(false)
+                  }}
+                  title="Delete Table"
+                >
+                  Delete Table
                 </button>
               </div>
             )}
