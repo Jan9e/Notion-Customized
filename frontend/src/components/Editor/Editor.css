@@ -369,6 +369,7 @@
 
 /* Header cell styling */
 .ProseMirror table th {
+  width: 15%;
   background-color: #f8fafc;
   font-weight: 600;
   color: #1f2937;
@@ -377,6 +378,7 @@
 /* First row header styling */
 .ProseMirror table tr:first-child th {
   border-bottom: 2px solid #e2e8f0;
+  
 }
 
 /* First column header styling */
@@ -384,11 +386,12 @@
 .ProseMirror table tr th:first-child {
   background-color: #f8fafc;
   font-weight: 600;
+  width: 60%;
   color: #1f2937;
   border-right: 2px solid #e2e8f0;
 }
 
-.ProseMirror table p {
+.ProseMirror table p { 
   margin: 0;
 }
 
@@ -919,4 +922,736 @@
 
 .table-dropdown-content .table-action-button.header-button:hover {
   background-color: #eff6ff;
+}
+
+/* Priority Dropdown Styles */
+.priority-dropdown-container {
+  width: 200px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  z-index: 10000;
+  margin-top: 4px;
+}
+
+.priority-dropdown-header {
+  padding: 8px 12px;
+  font-weight: 600;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  margin-bottom: 4px;
+}
+
+.priority-dropdown-options {
+  padding: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.priority-option {
+  padding: 6px 8px;
+  cursor: pointer;
+  position: relative;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  transition: background-color 0.1s ease;
+}
+
+.priority-option:hover {
+  background-color: #f8f9fa;
+}
+
+.priority-option.selected {
+  background-color: #f1f3f5;
+}
+
+.priority-option .priority-tag {
+  display: inline-block;
+  width: 100%;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Fix Tippy positioning */
+.tippy-box[data-placement^='bottom'] .tippy-arrow {
+  top: -8px;
+}
+
+.tippy-box[data-placement^='bottom-start'] .tippy-arrow {
+  left: 16px;
+}
+
+/* Style the tippy dropdown to ensure it displays properly */
+[data-tippy-root] {
+  max-width: calc(100vw - 10px);
+  z-index: 9999 !important;
+}
+
+.tippy-box {
+  position: relative;
+  background-color: transparent;
+  color: #333;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.4;
+  outline: 0;
+  transition-property: transform, visibility, opacity;
+  z-index: 9999 !important;
+  box-shadow: none;
+}
+
+.tippy-box[data-theme~='light-border'] {
+  background-color: white;
+  border: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Priority cell styling for tables */
+td.priority-cell {
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-user-modify: read-only !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+  transition: all 0.2s ease;
+  color: #000000 !important;
+  background-color: transparent !important;
+}
+
+/* Styling for the priority tags inside cells */
+.priority-tag-wrapper {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 13px;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  pointer-events: auto !important;
+  color: #000000 !important;
+}
+
+/* Priority colors with improved styling */
+.priority-tag-wrapper[data-value="High"],
+.priority-tag[data-value="High"] {
+  background-color: #FFE2E2 !important;
+  color: #C41E3A !important;
+  border: 1px solid #FFABAB !important;
+}
+
+.priority-tag-wrapper[data-value="Medium"],
+.priority-tag[data-value="Medium"] {
+  background-color: #FFF4E2 !important;
+  color: #D97706 !important;
+  border: 1px solid #FFD599 !important;
+}
+
+.priority-tag-wrapper[data-value="Low"],
+.priority-tag[data-value="Low"] {
+  background-color: #ECFDF5 !important;
+  color: #059669 !important;
+  border: 1px solid #A7F3D0 !important;
+}
+
+.priority-tag-wrapper[data-value="Critical"],
+.priority-tag[data-value="Critical"] {
+  background-color: #FDF2F8 !important;
+  color: #9D174D !important;
+  border: 1px solid #FBCFE8 !important;
+}
+
+.priority-tag-wrapper[data-value="Not Set"],
+.priority-tag[data-value="Not Set"] {
+  background-color: #F3F4F6 !important;
+  color: #6B7280 !important;
+  border: 1px solid #D1D5DB !important;
+}
+
+/* Remove background color from cells */
+.ProseMirror table td[data-priority="High"],
+.ProseMirror table td[data-priority="Medium"],
+.ProseMirror table td[data-priority="Low"],
+.ProseMirror table td[data-priority="Critical"],
+.ProseMirror table td[data-priority="Not Set"] {
+  background-color: transparent !important;
+}
+
+.priority-paragraph {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  min-height: 24px !important;
+}
+
+/* Make sure the priority cell has proper padding */
+.ProseMirror table td:nth-child(4) {
+  padding: 8px !important;
+  position: relative !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  -webkit-user-modify: read-only !important;
+  user-modify: read-only !important;
+  text-align: center !important;
+}
+
+/* Remove margin from paragraph in priority cells */
+.ProseMirror table td:nth-child(4) p {
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Make sure tippy has proper z-index */
+[data-tippy-root] {
+  z-index: 9999 !important;
+}
+
+.tippy-box {
+  z-index: 9999 !important;
+}
+
+/* Priority cell styling */
+.priority-cell {
+  cursor: pointer !important;
+  background-color: transparent;
+  position: relative;
+}
+
+.priority-paragraph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.priority-tag-wrapper {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+/* Priority dropdown styling */
+.priority-dropdown-fixed {
+  position: absolute;
+  z-index: 100;
+  width: 225px;
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  transform-origin: top left;
+  animation: dropdownFadeIn 0.1s ease-out forwards;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.priority-dropdown-fixed .priority-dropdown-header {
+  padding: 12px 14px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border-bottom: 1px solid rgba(55, 53, 47, 0.08) !important;
+  color: rgba(55, 53, 47, 0.6) !important;
+  letter-spacing: 0.7px !important;
+  text-transform: uppercase !important;
+  background-color: white !important;
+}
+
+.priority-dropdown-fixed .priority-dropdown-options {
+  max-height: 240px !important;
+  overflow-y: auto !important;
+  padding: 6px !important;
+}
+
+.priority-dropdown-fixed .priority-option {
+  padding: 8px !important;
+  cursor: pointer !important;
+  border-radius: 4px !important;
+  margin: 2px 0 !important;
+  transition: all 0.12s ease-out !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.priority-dropdown-fixed .priority-option.selected {
+  background-color: rgba(55, 53, 47, 0.05) !important;
+}
+
+.priority-dropdown-fixed .priority-option.selected::before {
+  content: "✓" !important;
+  position: absolute !important;
+  left: 10px !important;
+  font-size: 12px !important;
+  color: rgba(55, 53, 47, 0.65) !important;
+}
+
+.priority-dropdown-fixed .priority-tag {
+  display: block !important;
+  margin: 0 auto !important;
+  width: calc(100% - 20px) !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+  font-size: 14px !important;
+  transition: all 0.15s ease !important;
+  box-shadow: rgba(15, 15, 15, 0.1) 0px 0px 0px 1px inset !important;
+}
+
+.priority-dropdown-fixed .priority-option:hover .priority-tag {
+  transform: translateY(-1px) !important;
+  box-shadow: rgba(15, 15, 15, 0.1) 0px 0px 0px 1px inset, 
+              rgba(15, 15, 15, 0.1) 0px 2px 4px !important;
+}
+
+.priority-dropdown-fixed .priority-option.selected .priority-tag {
+  margin-left: 18px !important;
+}
+
+/* Priority tag styles in cells */
+td.priority-cell .priority-tag-wrapper {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 5px 12px !important;
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  transition: all 0.2s ease !important;
+  box-shadow: rgba(15, 15, 15, 0.05) 0px 1px 2px !important;
+}
+
+td.priority-cell .priority-tag-wrapper:hover {
+  opacity: 1 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: rgba(15, 15, 15, 0.1) 0px 2px 4px !important;
+}
+
+/* Priority color tags with Notion-like colors */
+.priority-tag-wrapper[data-value="Medium"],
+.priority-tag[data-value="Medium"] {
+  background-color: #FFF4E2 !important;
+  color: #D97706 !important;
+  border: 1px solid #FFD599 !important;
+}
+
+.priority-tag-wrapper[data-value="Low"],
+.priority-tag[data-value="Low"] {
+  background-color: #ECFDF5 !important;
+  color: #059669 !important;
+  border: 1px solid #A7F3D0 !important;
+}
+
+.priority-tag-wrapper[data-value="Critical"],
+.priority-tag[data-value="Critical"] {
+  background-color: #FDF2F8 !important;
+  color: #9D174D !important;
+  border: 1px solid #FBCFE8 !important;
+}
+
+.priority-tag-wrapper[data-value="Not Set"],
+.priority-tag[data-value="Not Set"] {
+  background-color: #F3F4F6 !important;
+  color: #6B7280 !important;
+  border: 1px solid #D1D5DB !important;
+}
+
+/* Dropdown styling */
+.priority-dropdown-fixed {
+  position: absolute;
+  z-index: 100;
+  width: 225px;
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  transform-origin: top left;
+  animation: dropdownFadeIn 0.1s ease-out forwards;
+}
+
+/* Add status dropdown fixed style */
+.status-dropdown-fixed {
+  position: absolute;
+  z-index: 100;
+  width: 225px;
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  transform-origin: top left;
+  animation: dropdownFadeIn 0.1s ease-out forwards;
+}
+
+/* Status cell styling */
+td.status-cell {
+  background-color: transparent !important;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+/* Status paragraph styling */
+.status-paragraph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  min-height: 24px;
+}
+
+/* Status tag wrapper styling */
+.status-tag-wrapper {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.status-tag-wrapper:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Status dropdown header */
+.status-dropdown-header {
+  padding: 8px 12px;
+  background-color: #f9fafb;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+/* Status dropdown options container */
+.status-dropdown-options {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Status dropdown option item */
+.status-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.1s ease;
+}
+
+.status-option:hover {
+  background-color: #f3f4f6;
+}
+
+.status-option.selected {
+  background-color: #f3f4f6;
+}
+
+/* Status tag in dropdown */
+.status-tag {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 13px;
+  display: inline-block;
+  color: black;
+}
+
+/* Status color styles */
+.status-tag-wrapper[data-value="Todo"] {
+  background-color: #E2E8F0;
+  color: black;
+}
+
+.status-tag-wrapper[data-value="In Progress"] {
+  background-color: #BAE6FD;
+  color: black;
+}
+
+.status-tag-wrapper[data-value="Blocked"] {
+  background-color: #FCA5A5;
+  color: black;
+}
+
+.status-tag-wrapper[data-value="Done"] {
+  background-color: #BBF7D0;
+  color: black;
+}
+
+.status-tag-wrapper[data-value="Not Started"] {
+  background-color: #E4E4E7;
+  color: black;
+}
+
+/* Due date cell and tag styling */
+td.due-date-cell {
+  background-color: transparent !important;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.due-date-paragraph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  min-height: 24px;
+}
+
+.due-date-tag-wrapper {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  background-color: #F5F5F5;
+  color: #333;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.due-date-tag-wrapper:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Calendar dropdown */
+.calendar-dropdown-fixed {
+  position: absolute;
+  z-index: 100;
+  width: 280px;
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 0 1px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  transform-origin: top left;
+  animation: dropdownFadeIn 0.1s ease-out forwards;
+}
+
+/* Calendar container and components */
+.calendar-container {
+  padding: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 4px 0;
+}
+
+.calendar-month-year {
+  font-weight: 600;
+  font-size: 15px;
+  color: #333;
+}
+
+.calendar-nav-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+}
+
+.calendar-nav-button:hover {
+  background-color: #f5f5f5;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.weekday-cell {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+  padding: 4px;
+  font-weight: 500;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.calendar-day {
+  aspect-ratio: 1/1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333;
+}
+
+.calendar-day:hover {
+  background-color: #f3f4f6;
+}
+
+.calendar-day.empty {
+  cursor: default;
+}
+
+.calendar-day.today {
+  font-weight: 600;
+  color: #1c64f2;
+}
+
+.calendar-day.selected {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  font-weight: 600;
+}
+
+.calendar-day.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+.calendar-day.disabled:hover {
+  background-color: transparent;
+}
+
+.calendar-nav-button.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.calendar-nav-button.disabled:hover {
+  background-color: transparent;
+}
+
+.calendar-action-bar {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.calendar-action-button {
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #374151;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.calendar-action-button:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.calendar-action-button.clear {
+  color: #9ca3af;
+}
+
+.calendar-action-button.clear:hover {
+  color: #6b7280;
+}
+
+/* Goal Button Styling in Table Cells */
+.ProseMirror table .goal-button-container {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.ProseMirror table .table-goal-button {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.ProseMirror table td:hover .goal-button-container,
+.ProseMirror table td.goal-title-cell:hover .goal-button-container {
+  opacity: 1;
+}
+
+.ProseMirror table td.goal-title-cell {
+  position: relative;
+}
+
+.ProseMirror table .table-cell-button {
+  font-size: 10px;
+  padding: 2px 4px;
+  background-color: rgba(240, 240, 240, 0.8);
+  backdrop-filter: blur(2px);
+  border: 1px solid #e5e7eb;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+/* Goal Button Styling in Headings */
+.ProseMirror h1 .goal-button-container,
+.ProseMirror h2 .goal-button-container {
+  margin-left: 8px;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+/* Animation for Peek Panel */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
 } 

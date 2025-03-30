@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import Editor from '../components/Editor/Editor'
+import GoalEnabledEditor from '../components/Editor/GoalEnabledEditor'
 import { Loader2 } from 'lucide-react'
 import { usePage } from '../contexts/PageContext'
 import { debounce } from 'lodash'
@@ -127,7 +127,7 @@ export default function PageEditor({ onRefresh }) {
           )}
         </div>
         
-        <Editor
+        <GoalEnabledEditor
           content={page.content}
           onUpdate={handleContentChange}
           pageId={pageId}

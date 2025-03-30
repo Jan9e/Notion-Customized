@@ -1,1 +1,32 @@
 @import "tailwindcss";
+
+/* Animation for the goal peek */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.peek-enter {
+  animation: slideInFromRight 0.2s ease-out forwards;
+}
+
+.peek-exit {
+  animation: slideOutToRight 0.2s ease-in forwards;
+}

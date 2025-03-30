@@ -53,39 +53,97 @@ export const pageTemplates = [
     description: 'Track and manage your goals with clear milestones',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-target"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
     content: `<h1>Goals Tracker</h1>
-<p></p>
-<h2>Vision</h2>
-<p>[Your long-term vision statement]</p>
-<p></p>
-<h2>Goals Overview</h2>
-<table>
-  <tr>
-    <th>Goal</th>
-    <th>Target Date</th>
-    <th>Status</th>
-  </tr>
-  <tr>
-    <td>[Goal 1]</td>
-    <td>[Date]</td>
-    <td>🟡 In Progress</td>
-  </tr>
+<p>Track your key objectives and goals.</p>
+
+<div style="overflow-x: auto; width: 100%; padding-bottom: 20px;">
+<table style="width: 100%; min-width: 800px; border-collapse: collapse; margin: 20px 0; border: 1px solid #e9ecef; table-layout: fixed;">
+  <colgroup>
+    <col style="width: 40%;">
+    <col style="width: 15%;">
+    <col style="width: 15%;">
+    <col style="width: 15%;">
+    <col style="width: 15%;">
+  </colgroup>
+  <thead>
+    <tr style="background-color: #f8f9fa;">
+      <th style="padding: 12px 16px; text-align: left; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">Goal Name</th>
+      <th style="padding: 12px 16px; text-align: left; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">Status</th>
+      <th style="padding: 12px 16px; text-align: left; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">Due Date</th>
+      <th style="padding: 12px 16px; text-align: left; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">Priority</th>
+      <th style="padding: 12px 16px; text-align: left; border-bottom: 1px solid #e9ecef;">Team</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">
+        <div style="font-weight: 500;">Increase sales by 30% across all major product lines and improve market penetration</div>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #d3f9d8; color: #2b8a3e; font-size: 12px;">In Progress</span>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">Dec 31, 2023</td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;" class="priority-cell" data-priority="High">
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #ffe3e3; color: #c92a2a; font-size: 12px;" class="goals-tracker-priority">High</span>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef;">Marketing</td>
+    </tr>
+    <tr>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">
+        <div style="font-weight: 500;">Launch new product line with emphasis on sustainable materials and packaging</div>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #d3f9d8; color: #2b8a3e; font-size: 12px;">In Progress</span>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">Nov 15, 2023</td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;" class="priority-cell" data-priority="Medium">
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #fff3bf; color: #e67700; font-size: 12px;" class="goals-tracker-priority">Medium</span>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef;">Product</td>
+    </tr>
+    <tr>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">
+        <div style="font-weight: 500;">Improve customer support response time from 24 hours to under 3 hours for all tickets</div>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #e9ecef; color: #495057; font-size: 12px;">Completed</span>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">Oct 1, 2023</td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;" class="priority-cell" data-priority="Low">
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #e6fcf5; color: #0ca678; font-size: 12px;" class="goals-tracker-priority">Low</span>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef;">Support</td>
+    </tr>
+    <tr>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">
+        <div style="font-weight: 500;">Expand to international markets with focus on European and Asian regions</div>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #ffdeeb; color: #c2255c; font-size: 12px;">Not Started</span>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;">Feb 28, 2024</td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;" class="priority-cell" data-priority="Critical">
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #f3d9fa; color: #ae3ec9; font-size: 12px;" class="goals-tracker-priority">Critical</span>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef;">Business Development</td>
+    </tr>
+    <tr>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef; color: #adb5bd; font-style: italic;">
+        + Add new goal
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;"></td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;"></td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef; border-right: 1px solid #e9ecef;" class="priority-cell" data-priority="Not Set">
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: #e9ecef; color: #495057; font-size: 12px;" class="goals-tracker-priority">Not Set</span>
+      </td>
+      <td style="padding: 16px; border-bottom: 1px solid #e9ecef;"></td>
+    </tr>
+  </tbody>
 </table>
-<p></p>
-<h2>Key Milestones</h2>
-<ul class="task-list">
-  <li data-type="taskItem" data-checked="false">Milestone 1</li>
-  <li data-type="taskItem" data-checked="false">Milestone 2</li>
-  <li data-type="taskItem" data-checked="false">Milestone 3</li>
-</ul>
-<p></p>
-<h2>Progress Tracking</h2>
-<ul>
-  <li>Current Status: [Status]</li>
-  <li>Next Review: [Date]</li>
-</ul>
-<p></p>
-<h2>Notes & Reflections</h2>
-<p>[Add your reflections and learnings here]</p>`
+</div>
+
+<div style="font-size: 12px; color: #868e96; border-top: 1px solid #e9ecef; padding-top: 16px; margin-top: 40px;">
+  Last updated: October 2023 • Created with Notion Clone
+</div>`
   },
   {
     id: 'project-plan',

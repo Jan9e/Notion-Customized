@@ -11,6 +11,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { PageProvider } from './contexts/PageContext';
 import PrivateRoute from './components/PrivateRoute';
 import PageEditor from './pages/PageEditor';
+import GoalDemoPage from './pages/GoalDemoPage';
 
 function App() {
   return (
@@ -38,6 +39,8 @@ function App() {
                 <Route path="new" element={<NewPage />} />
                 <Route path="page/:pageId" element={<PageEditor />} />
               </Route>
+
+              <Route path="/goal-demo" element={<GoalDemoPage />} />
 
               {/* Fallback route */}
               <Route path="*" element={<Navigate to="/" replace />} />
