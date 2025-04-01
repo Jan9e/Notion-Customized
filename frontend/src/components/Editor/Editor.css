@@ -1,6 +1,29 @@
 @import 'tippy.js/dist/tippy.css';
 @import 'tippy.js/animations/scale.css';
 
+/* Only add the missing animation keyframes for the peek panel, which should go at the top of the file */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
 .ProseMirror {
   min-height: 150px;
   padding: 1rem;
@@ -1641,17 +1664,65 @@ td.due-date-cell {
 @keyframes slideInFromRight {
   from {
     transform: translateX(100%);
+    opacity: 0;
   }
   to {
     transform: translateX(0);
+    opacity: 1;
   }
 }
 
 @keyframes slideOutToRight {
   from {
     transform: translateX(0);
+    opacity: 1;
   }
   to {
     transform: translateX(100%);
+    opacity: 0;
   }
+}
+
+/* Goal peek panel styling */
+.goal-button-container button {
+  transition: all 0.2s ease;
+}
+
+.goal-button-container button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Improve table cell goal button appearance */
+.ProseMirror table .table-goal-button {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+}
+
+.ProseMirror table td.goal-title-cell {
+  position: relative;
+  padding-right: 50px !important; /* Make space for the button */
+}
+
+.ProseMirror table .table-cell-button {
+  font-size: 10px;
+  padding: 2px 4px;
+  background-color: rgba(240, 240, 240, 0.8);
+  backdrop-filter: blur(2px);
+  border: 1px solid #e5e7eb;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.ProseMirror table .table-cell-button:hover {
+  background-color: rgba(230, 230, 230, 0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 } 

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FileText, Target, Settings, Home } from 'lucide-react';
+import { FileText, Target, Settings, Home, BarChart2 } from 'lucide-react';
 
 export default function DashboardNav() {
   return (
@@ -23,6 +23,15 @@ export default function DashboardNav() {
               >
                 <Home size={18} className="mr-2" />
                 Dashboard
+              </Link>
+            </li>
+            <li>
+              <Link 
+                to="/goals" 
+                className="flex items-center text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-md transition-colors"
+              >
+                <BarChart2 size={18} className="mr-2" />
+                Goal Dashboard
               </Link>
             </li>
             <li>

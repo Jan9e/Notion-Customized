@@ -52,11 +52,11 @@ export const pageTemplates = [
     name: 'Goals Tracker',
     description: 'Track and manage your goals with clear milestones',
     icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-target"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
-    content: `<h1>Goals Tracker</h1>
-<p>Track your key objectives and goals.</p>
+    content: `<h1 style="font-size: 2rem; font-weight: 600; margin-bottom: 16px;" data-no-goal-button="true">Goals Tracker</h1>
+<p style="margin-top: 0; margin-bottom: 24px; color: #4b5563;" data-no-goal-button="true">Track your key objectives and goals.</p>
 
 <div style="overflow-x: auto; width: 100%; padding-bottom: 20px;">
-<table style="width: 100%; min-width: 800px; border-collapse: collapse; margin: 20px 0; border: 1px solid #e9ecef; table-layout: fixed;">
+<table style="width: 100%; min-width: 800px; border-collapse: collapse; margin: 0; border: 1px solid #e9ecef; table-layout: fixed;">
   <colgroup>
     <col style="width: 40%;">
     <col style="width: 15%;">
@@ -141,8 +141,8 @@ export const pageTemplates = [
 </table>
 </div>
 
-<div style="font-size: 12px; color: #868e96; border-top: 1px solid #e9ecef; padding-top: 16px; margin-top: 40px;">
-  Last updated: October 2023 • Created with Notion Clone
+<div style="font-size: 12px; color: #868e96; border-top: 1px solid #e9ecef; padding-top: 16px; margin-top: 20px;" data-no-goal-button="true">
+  Last updated: June 2024 • Created with Notion Clone
 </div>`
   },
   {

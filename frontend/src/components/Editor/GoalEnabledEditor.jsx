@@ -1,9 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Editor from './Editor';
 import GoalPeek from '../GoalPeek';
 import createGoalExtension from './GoalExtension';
+import goalService from '../../services/GoalService';
+import { useLocation } from 'react-router-dom';
 
-// Helper to extract document sections
+// Helper to extract document sections - we'll keep this for initial loading
 const extractGoalDetails = (editor, goalTitle) => {
   if (!editor) return null;
   
@@ -72,7 +74,10 @@ const extractGoalDetails = (editor, goalTitle) => {
               // Third column might be due date
               result.dueDate = text || '';
             } else if (cellIndex === 3) {
-              // Fourth column might be details
+              // Fourth column might be status
+              result.status = text || 'In Progress';
+            } else if (cellIndex === 4) {
+              // Fifth column might be details
               result.detail = text || '';
             }
           });
@@ -131,6 +136,8 @@ const extractGoalDetails = (editor, goalTitle) => {
           currentSection = 'priority';
         } else if (text === 'Due Date') {
           currentSection = 'dueDate';
+        } else if (text === 'Status') {
+          currentSection = 'status';
         } else if (text === 'Action Plan') {
           currentSection = 'actionItems';
           collectingItems = true;
@@ -159,6 +166,8 @@ const extractGoalDetails = (editor, goalTitle) => {
             result.priority = text;
           } else if (currentSection === 'dueDate') {
             result.dueDate = text;
+          } else if (currentSection === 'status') {
+            result.status = text;
           }
         }
       }
@@ -197,158 +206,100 @@ const extractGoalDetails = (editor, goalTitle) => {
   return result;
 };
 
-// Helper to update document with goal data
-const updateDocumentWithGoal = (editor, goalData) => {
-  if (!editor) return;
-  
-  console.log("Goal data updated:", goalData);
-  
-  // Different update strategies based on where the goal was found
-  if (goalData.source && goalData.source.type === 'table') {
-    // For table-based goals, we'll update the cells in the row
-    try {
-      const { doc, tr } = editor.state;
-      let updated = false;
-      
-      // Find the table row containing this goal
-      doc.descendants((node, pos) => {
-        if (node.type.name === 'tableRow') {
-          // Check if this row contains our goal title
-          let hasGoalTitle = false;
-          let titleCellIndex = -1;
-          
-          node.forEach((cell, cellIndex) => {
-            if (cell.textContent.trim() === goalData.title) {
-              hasGoalTitle = true;
-              titleCellIndex = cellIndex;
-            }
-          });
-          
-          if (hasGoalTitle) {
-            // We found the row, now update cells based on their positions
-            node.forEach((cell, cellIndex) => {
-              // Skip the title cell
-              if (cellIndex === titleCellIndex) return;
-              
-              // Determine what data to put in which cell (adjust based on your table structure)
-              let newContent = '';
-              if (cellIndex === titleCellIndex + 1) {
-                // The cell after title might be for priority
-                newContent = goalData.priority;
-              } else if (cellIndex === titleCellIndex + 2) {
-                // The next cell might be for due date
-                newContent = goalData.dueDate;
-              } else if (cellIndex === titleCellIndex + 3) {
-                // The next cell might be for details
-                newContent = goalData.detail;
-              }
-              
-              // If we have content to update
-              if (newContent && newContent !== cell.textContent.trim()) {
-                // Get position of the cell content
-                const cellPos = pos + 1; // Add 1 to get inside the cell
-                
-                // Delete existing content
-                tr.delete(cellPos, cellPos + cell.content.size);
-                
-                // Insert new content (if using a schema with paragraphs in cells)
-                const schema = editor.schema;
-                const paragraph = schema.nodes.paragraph.create(
-                  null, 
-                  schema.text(newContent)
-                );
-                tr.insert(cellPos, paragraph);
-                
-                updated = true;
-              }
-            });
-          }
-        }
-        
-        return !updated; // Stop traversing if updated
-      });
-      
-      if (updated) {
-        editor.view.dispatch(tr);
-      }
-    } catch (error) {
-      console.error("Error updating table goal:", error);
-    }
-  } else if (goalData.source && goalData.source.type === 'heading') {
-    // For heading-based goals, we need to find and update the sections
-    try {
-      const { doc, tr } = editor.state;
-      let sectionsToUpdate = {
-        'Priority': goalData.priority,
-        'Due Date': goalData.dueDate,
-        'Detail': goalData.detail,
-        'Success Metrics': goalData.metrics,
-        'Timeline': goalData.timeline
-      };
-      
-      // Find the heading for this goal
-      let inGoalSection = false;
-      let currentSection = null;
-      
-      doc.descendants((node, pos) => {
-        if (node.type.name === 'heading') {
-          const text = node.textContent.trim();
-          
-          // Found the goal title
-          if (text === goalData.title) {
-            inGoalSection = true;
-            return true;
-          }
-          
-          // If we're in the goal's section, look for subsections
-          if (inGoalSection) {
-            // Check if this heading is a subsection
-            if (Object.keys(sectionsToUpdate).includes(text)) {
-              currentSection = text;
-              return true;
-            } else if (node.attrs.level <= 2) {
-              // Found another goal or major heading, stop looking
-              inGoalSection = false;
-              currentSection = null;
-              return false;
-            }
-          }
-        }
-        
-        // Update content in the current section
-        if (inGoalSection && currentSection && node.type.name === 'paragraph') {
-          const sectionContent = sectionsToUpdate[currentSection];
-          if (sectionContent && sectionContent !== node.textContent.trim()) {
-            // Delete existing content
-            tr.delete(pos, pos + node.nodeSize);
-            
-            // Insert new content
-            const schema = editor.schema;
-            const paragraph = schema.nodes.paragraph.create(
-              null, 
-              schema.text(sectionContent)
-            );
-            tr.insert(pos, paragraph);
-            
-            // Mark this section as updated
-            delete sectionsToUpdate[currentSection];
-          }
-        }
-        
-        return true;
-      });
-      
-      editor.view.dispatch(tr);
-    } catch (error) {
-      console.error("Error updating heading goal:", error);
-    }
-  }
-};
-
 export default function GoalEnabledEditor({ content, onUpdate, pageId }) {
   const [isPeekOpen, setIsPeekOpen] = useState(false);
   const [activeGoal, setActiveGoal] = useState(null);
   const [editorInstance, setEditorInstance] = useState(null);
+  const [goals, setGoals] = useState([]);
+  const location = useLocation();
+  
+  // Add a ref to track if a goal open/close operation is in progress
+  const isProcessingRef = useRef(false);
+  
+  // Track the currently open goal ID
+  const currentGoalIdRef = useRef(null);
+  
+  // Emit goal state change event
+  const emitGoalStateChange = useCallback((goalId, isOpen) => {
+    if (!goalId) return;
+    
+    console.log(`Emitting goal state change: ${goalId} is ${isOpen ? 'open' : 'closed'}`);
+    
+    // Create and dispatch custom event
+    const event = new CustomEvent('goal-state-changed', {
+      detail: { goalId, isOpen },
+      bubbles: true
+    });
+    
+    document.dispatchEvent(event);
+  }, []);
+  
+  // Effect to track peek state changes
+  useEffect(() => {
+    if (isPeekOpen && activeGoal) {
+      // Goal is opened
+      currentGoalIdRef.current = activeGoal.id;
+      emitGoalStateChange(activeGoal.id, true);
+    } else if (!isPeekOpen && currentGoalIdRef.current) {
+      // Goal is closed
+      emitGoalStateChange(currentGoalIdRef.current, false);
+      currentGoalIdRef.current = null;
+    }
+  }, [isPeekOpen, activeGoal, emitGoalStateChange]);
+  
+  // Load goals for this page on mount
+  useEffect(() => {
+    if (pageId) {
+      const pageGoals = goalService.getGoals({ pageId });
+      setGoals(pageGoals);
+      
+      // If there's a goal ID in the location state, open that goal automatically
+      const openGoalId = location.state?.openGoalId;
+      if (openGoalId) {
+        const goalToOpen = pageGoals.find(goal => goal.id === openGoalId);
+        if (goalToOpen) {
+          setActiveGoal(goalToOpen);
+          setIsPeekOpen(true);
+        }
+      }
+    }
+  }, [pageId, location.state]);
+  
+  // Subscribe to goal updates
+  useEffect(() => {
+    // Subscribe to goal updates from the service
+    const unsubscribe = goalService.subscribe((updatedGoal) => {
+      // Only update if the goal belongs to this page
+      if (updatedGoal.pageId === pageId) {
+        // Update local goals list
+        setGoals(prevGoals => {
+          const index = prevGoals.findIndex(g => g.id === updatedGoal.id);
+          if (index >= 0) {
+            // Update existing goal
+            const newGoals = [...prevGoals];
+            newGoals[index] = updatedGoal;
+            return newGoals;
+          } else {
+            // Add new goal
+            return [...prevGoals, updatedGoal];
+          }
+        });
+        
+        // If this is the active goal, update it
+        if (activeGoal && activeGoal.id === updatedGoal.id) {
+          setActiveGoal(updatedGoal);
+        }
+        
+        // Update the document if we have an editor instance
+        if (editorInstance) {
+          goalService.updateDocumentGoal(updatedGoal, editorInstance);
+        }
+      }
+    });
+    
+    // Cleanup subscription on unmount
+    return unsubscribe;
+  }, [pageId, activeGoal, editorInstance]);
   
   // Store editor instance for parsing
   const handleEditorReady = (editor) => {
@@ -356,37 +307,118 @@ export default function GoalEnabledEditor({ content, onUpdate, pageId }) {
   };
   
   // Handle opening a goal's details panel
-  const handleOpenGoal = useCallback((goalData) => {
-    if (editorInstance) {
-      // Extract more detailed data from the document
-      const enhancedGoalData = extractGoalDetails(editorInstance, goalData.title);
-      
-      // If we found enhanced data, use it, otherwise use the basic data
-      setActiveGoal(enhancedGoalData || goalData);
-    } else {
-      setActiveGoal(goalData);
+  const handleOpenGoal = useCallback((goalData, isCurrentlyOpen) => {
+    console.log('handleOpenGoal called with:', goalData.id, goalData.title, 'Currently open:', isCurrentlyOpen);
+    
+    // Prevent multiple rapid calls
+    if (isProcessingRef.current) {
+      console.log('Ignoring request - already processing a goal operation');
+      return;
     }
     
-    setIsPeekOpen(true);
-  }, [editorInstance]);
+    // Set processing flag
+    isProcessingRef.current = true;
+    
+    // Check if we're dealing with the currently open goal
+    const isSameGoal = isPeekOpen && activeGoal && activeGoal.id === goalData.id;
+    
+    // If the goal is currently open or we're told it's open, close it
+    if (isSameGoal || isCurrentlyOpen) {
+      console.log('Closing peek (toggle behavior)');
+      setIsPeekOpen(false);
+      setActiveGoal(null);
+      
+      // Reset processing flag after delay
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 500);
+      return;
+    }
+    
+    try {
+      // Check if we already have this goal in our database
+      const existingGoal = goalService.getGoalById(goalData.id);
+      
+      if (existingGoal) {
+        console.log('Using existing goal from database');
+        // Use the stored goal data
+        setActiveGoal(existingGoal);
+      } else if (editorInstance) {
+        console.log('Extracting goal details from document');
+        // Extract more detailed data from the document
+        const enhancedGoalData = extractGoalDetails(editorInstance, goalData.title);
+        
+        // Add pageId to the goal data
+        if (enhancedGoalData) {
+          enhancedGoalData.pageId = pageId;
+        }
+        
+        // If we found enhanced data, store it in our database
+        if (enhancedGoalData) {
+          const savedGoal = goalService.createGoal(enhancedGoalData);
+          setActiveGoal(savedGoal);
+        } else {
+          // If we couldn't extract enhanced data, use the basic data
+          goalData.pageId = pageId;
+          const savedGoal = goalService.createGoal(goalData);
+          setActiveGoal(savedGoal);
+        }
+      } else {
+        console.log('Using basic goal data (no editor instance)');
+        // If no editor instance, just use the basic data
+        goalData.pageId = pageId;
+        const savedGoal = goalService.createGoal(goalData);
+        setActiveGoal(savedGoal);
+      }
+      
+      // Always set to open at the end
+      console.log('Opening peek');
+      setIsPeekOpen(true);
+    } catch (error) {
+      console.error('Error opening goal:', error);
+    }
+    
+    // Reset processing flag after delay
+    setTimeout(() => {
+      isProcessingRef.current = false;
+    }, 500);
+  }, [editorInstance, pageId, isPeekOpen, activeGoal]);
   
   // Handle goal data updates
   const handleGoalUpdate = useCallback((updatedGoal) => {
-    setActiveGoal(updatedGoal);
+    // Use the synchronize method from our service
+    goalService.synchronizeGoal(updatedGoal, editorInstance);
     
-    // Update document if we have an editor instance
-    if (editorInstance) {
-      updateDocumentWithGoal(editorInstance, updatedGoal);
-    }
+    // Update the active goal
+    setActiveGoal(updatedGoal);
   }, [editorInstance]);
   
   // Create the goal extension with our handler
   const goalExtension = createGoalExtension(handleOpenGoal);
   
   // Close the peek sidebar
-  const handleClosePeek = () => {
-    setIsPeekOpen(false);
-  };
+  const handleClosePeek = useCallback(() => {
+    console.log('handleClosePeek called, current state:', isPeekOpen);
+    
+    // Only process if not already closing
+    if (!isProcessingRef.current && isPeekOpen) {
+      isProcessingRef.current = true;
+      
+      // Emit state change first to update button appearance
+      if (activeGoal) {
+        emitGoalStateChange(activeGoal.id, false);
+      }
+      
+      // Close the peek
+      setIsPeekOpen(false);
+      
+      // After animation completes, clear the active goal
+      setTimeout(() => {
+        setActiveGoal(null);
+        isProcessingRef.current = false;
+      }, 350); // Slightly longer than animation time
+    }
+  }, [isPeekOpen, activeGoal, emitGoalStateChange]);
   
   return (
     <div className="relative">

@@ -145,11 +145,11 @@ const PriorityDropdown = Extension.create({
                   row.node.forEach((cell, offset) => {
                     // If this position matches our cell's position, this is our index
                     if (pos === currentPos) {
-                      cellIndex = i;
-                    }
+                    cellIndex = i;
+                  }
                     currentPos += cell.nodeSize;
                     i++;
-                  });
+                });
                 } catch (cellIndexError) {
                   console.warn('Error getting cell index:', cellIndexError);
                   return true; // Skip this cell if we can't get its index
@@ -201,11 +201,11 @@ const PriorityDropdown = Extension.create({
                     if (firstChildText.length > 0) {
                       // Make sure we can safely access content props
                       if (node.firstChild.content && typeof node.firstChild.content.size !== 'undefined') {
-                        const textNodePos = paraPos + 1; // +1 to get inside the paragraph
-                        const textNodeSize = node.firstChild.content.size;
-                        
-                        decorations.push(
-                          Decoration.inline(textNodePos, textNodePos + textNodeSize, {
+                      const textNodePos = paraPos + 1; // +1 to get inside the paragraph
+                      const textNodeSize = node.firstChild.content.size;
+                      
+                      decorations.push(
+                        Decoration.inline(textNodePos, textNodePos + textNodeSize, {
                             class: 'priority-tag-wrapper',
                             style: `
                               display: inline-block; 
@@ -290,7 +290,7 @@ const PriorityDropdown = Extension.create({
             while (targetElement && targetElement.tagName !== 'TD') {
               if (targetElement.classList && 
                  (targetElement.classList.contains('priority-tag-wrapper') || 
-                  targetElement.classList.contains('goals-tracker-priority'))) {
+                   targetElement.classList.contains('goals-tracker-priority'))) {
                 clickedOnTag = true;
                 actualTagElement = targetElement;
                 break;
@@ -815,7 +815,7 @@ const StatusDropdown = Extension.create({
                 // Also update the document model
                 try {
                   const { state } = view;
-                  const { tr } = state;
+                const { tr } = state;
                   const posInfo = view.posAtDOM(tdElement, 0);
                   
                   if (posInfo) {
@@ -833,7 +833,7 @@ const StatusDropdown = Extension.create({
                       // Create a paragraph with the selected status text
                       const schema = state.schema;
                       const paragraph = schema.nodes.paragraph.create(
-                        null,
+                  null, 
                         schema.text(option.value)
                       );
                       
@@ -844,7 +844,7 @@ const StatusDropdown = Extension.create({
                         paragraph
                       );
                       
-                      view.dispatch(tr);
+                view.dispatch(tr);
                     }
                   }
                 } catch (err) {

@@ -12,6 +12,7 @@ import { PageProvider } from './contexts/PageContext';
 import PrivateRoute from './components/PrivateRoute';
 import PageEditor from './pages/PageEditor';
 import GoalDemoPage from './pages/GoalDemoPage';
+import GoalDashboard from './pages/GoalDashboard';
 
 function App() {
   return (
@@ -40,6 +41,15 @@ function App() {
                 <Route path="page/:pageId" element={<PageEditor />} />
               </Route>
 
+              {/* Goal management routes */}
+              <Route
+                path="/goals"
+                element={
+                  <PrivateRoute>
+                    <GoalDashboard />
+                  </PrivateRoute>
+                }
+              />
               <Route path="/goal-demo" element={<GoalDemoPage />} />
 
               {/* Fallback route */}

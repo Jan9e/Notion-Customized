@@ -43,8 +43,22 @@ export default function createGoalExtension(handleOpenGoal) {
                 if (node.type.name === 'heading' && (node.attrs.level === 1 || node.attrs.level === 2)) {
                   const headingText = node.textContent;
                   
+                  // Skip if this is the Goals Tracker heading
+                  if (headingText.trim() === 'Goals Tracker') {
+                    return true;
+                  }
+                  
                   // Only add the button if the heading contains text
                   if (headingText && headingText.trim()) {
+                    // Check if heading has the no-button attribute
+                    const hasNoButtonAttribute = node.attrs && 
+                                                node.attrs.HTMLAttributes && 
+                                                node.attrs.HTMLAttributes['data-no-goal-button'] === 'true';
+                    
+                    if (hasNoButtonAttribute) {
+                      return true;
+                    }
+                    
                     // Find the position after the text content but inside the heading
                     const textEnd = pos + node.nodeSize - 1;
                     
@@ -70,6 +84,8 @@ export default function createGoalExtension(handleOpenGoal) {
                     // Only add button to non-empty cells that aren't headers (unless it's a header with real content)
                     if (cellContent && 
                         cellContent !== 'Goal' && 
+                        cellContent !== 'Goal Name' &&
+                        !cellContent.includes('Add new goal') &&
                         cellContent.length > 0 && 
                         cellContent.length < 100) {
                       
@@ -163,33 +179,109 @@ function createGoalButton(text, handleOpenGoal, context = 'heading') {
   text_span.style.marginLeft = '4px';
   text_span.textContent = 'Open';
   
+  // Function to update button state (will be called by the document event listener)
+  const updateButtonState = (isOpen) => {
+    console.log(`Updating button state for ${goalId} to ${isOpen ? 'open' : 'closed'}`);
+    
+    // Update our local tracking state
+    isGoalOpen = isOpen;
+    
+    if (isOpen) {
+      button.classList.add('is-open');
+      button.classList.add('bg-indigo-100', 'text-indigo-700');
+      button.classList.remove('bg-gray-100', 'text-gray-700');
+      text_span.textContent = 'Close';
+    } else {
+      button.classList.remove('is-open');
+      button.classList.remove('bg-indigo-100', 'text-indigo-700');
+      button.classList.add('bg-gray-100', 'text-gray-700');
+      text_span.textContent = 'Open';
+    }
+  };
+  
   // Assemble button
   button.appendChild(iconContainer);
   button.appendChild(text_span);
   container.appendChild(button);
   
-  // Handle click - open the goal details
-  button.addEventListener('click', (e) => {
+  // Create goal data object
+  const goalData = {
+    id: goalId,
+    title: text,
+    // You could extract other sections by parsing the document
+    // This is simplified for demo purposes
+    detail: '',
+    metrics: '',
+    timeline: '',
+    priority: 'Medium', // Default priority
+    dueDate: '', // Default due date
+    actionItems: [],
+    relatedFiles: []
+  };
+  
+  // Listen for custom goal state events from the editor
+  document.addEventListener('goal-state-changed', (event) => {
+    if (event.detail && event.detail.goalId === goalId) {
+      updateButtonState(event.detail.isOpen);
+    }
+  });
+  
+  // Track click state to prevent multiple rapid clicks
+  let isProcessingClick = false;
+  
+  // Check if this goal is open initially
+  let isGoalOpen = false;
+  
+  // Improved click handler to ensure it works with just one click and as a toggle
+  const handleClick = (e) => {
+    // Prevent the event from propagating
+    e.preventDefault();
     e.stopPropagation();
     
-    // Create a goal object from the text
-    const goalData = {
-      id: goalId,
-      title: text,
-      // You could extract other sections by parsing the document
-      // This is simplified for demo purposes
-      detail: '',
-      metrics: '',
-      timeline: '',
-      priority: 'Medium', // Default priority
-      dueDate: '', // Default due date
-      actionItems: [],
-      relatedFiles: []
-    };
+    console.log('Goal button clicked for:', goalData.title, 'Currently open:', isGoalOpen);
     
-    // Call the handler with the goal data
-    handleOpenGoal(goalData);
-  });
+    // Prevent multiple rapid clicks - use a stronger check
+    if (isProcessingClick) {
+      console.log('Ignoring click - already processing');
+      return false;
+    }
+    
+    // Set processing flag
+    isProcessingClick = true;
+    
+    // Visual feedback - disable button temporarily
+    button.disabled = true;
+    button.style.opacity = '0.7';
+    button.style.cursor = 'wait';
+    
+    // Call the handler with the goal data and current state
+    handleOpenGoal(goalData, isGoalOpen);
+    
+    // Clear the processing flag after a delay
+    setTimeout(() => {
+      isProcessingClick = false;
+      
+      // Re-enable button
+      button.disabled = false;
+      button.style.opacity = '1';
+      button.style.cursor = 'pointer';
+      
+      console.log('Ready for next click');
+    }, 500); // Increase to 500ms to be safe
+    
+    return false;
+  };
+  
+  // Only use a single event binding approach
+  button.onclick = handleClick;
+  
+  // Make sure we don't interfere with the editor when clicking elsewhere
+  const stopPropagation = (e) => {
+    e.stopPropagation();
+  };
+  
+  button.addEventListener('mousedown', stopPropagation, { capture: true });
+  container.addEventListener('mousedown', stopPropagation, { capture: true });
   
   return container;
 } 
