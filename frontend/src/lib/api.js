@@ -379,4 +379,95 @@ export const api = {
       throw new Error('Failed to delete page');
     }
   },
+
+  // Goal related methods
+
+  // Get all goals for a page
+  async getPageGoals(pageId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/${pageId}/goals`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to get goals');
+      }
+      return data;
+    } catch (error) {
+      console.error('Error fetching goals:', error);
+      throw new Error('Failed to get goals');
+    }
+  },
+
+  // Create a new goal for a page
+  async createPageGoal(pageId, goalData) {
+    try {
+      console.log(`API: Creating goal for page ${pageId}`, goalData);
+      const response = await fetch(`${API_BASE_URL}/pages/${pageId}/goals`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(goalData),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error response from goals API: ${response.status}`, errorText);
+        throw new Error(`Failed to create goal: ${response.status} ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Goal created successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Error creating goal:', error);
+      throw new Error('Failed to create goal');
+    }
+  },
+
+  // Update a specific goal within a page
+  async updatePageGoal(pageId, goalId, goalUpdates) {
+    try {
+      console.log(`API: Updating goal ${goalId} for page ${pageId}`, goalUpdates);
+      
+      // Make a serializable copy of the goal without circular references
+      const cleanGoalData = JSON.parse(JSON.stringify(goalUpdates));
+      
+      const response = await fetch(`${API_BASE_URL}/pages/${pageId}/goals/${goalId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(cleanGoalData),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error response from goals API: ${response.status}`, errorText);
+        throw new Error(`Failed to update goal: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Goal updated successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Error updating goal:', error);
+      throw error; // Rethrow so the caller can handle it
+    }
+  },
+
+  // Delete a goal from a page
+  async deletePageGoal(pageId, goalId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages/${pageId}/goals/${goalId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to delete goal');
+      }
+      return data;
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+      throw new Error('Failed to delete goal');
+    }
+  },
 };

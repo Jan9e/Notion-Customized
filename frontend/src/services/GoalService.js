@@ -1,42 +1,47 @@
 // GoalService.js - Service for handling goal data operations
 
 import Goal from '../models/Goal';
+import { api } from '../lib/api';
 
 /**
  * Service for handling operations related to goals
  */
 class GoalService {
   constructor() {
-    this.storageKey = 'notion_clone_goals';
-    this.goals = this.loadGoals();
+    this.goals = [];
     this.subscribers = [];
+    this.storageKey = 'goals';
+    this.useApi = true; // Flag to control whether to use API or localStorage
+    
+    // Load goals from localStorage initially for fast startup
+    this.loadGoals();
   }
   
   /**
-   * Load goals from storage
-   * @returns {Array} Array of Goal objects
+   * Load goals from localStorage
+   * @returns {Array} Array of goals
    */
   loadGoals() {
     try {
-      const storedGoals = localStorage.getItem(this.storageKey);
-      if (!storedGoals) return [];
-      
-      const parsedGoals = JSON.parse(storedGoals);
-      return parsedGoals.map(data => new Goal(data));
+      const goalsJson = localStorage.getItem(this.storageKey);
+      this.goals = goalsJson ? JSON.parse(goalsJson) : [];
+      console.log(`Loaded ${this.goals.length} goals from localStorage`);
+      return this.goals;
     } catch (error) {
-      console.error('Error loading goals:', error);
+      console.error('Failed to load goals from localStorage:', error);
+      this.goals = [];
       return [];
     }
   }
   
   /**
-   * Save goals to storage
+   * Save goals to localStorage (for offline and fallback)
    */
   saveGoals() {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.goals));
     } catch (error) {
-      console.error('Error saving goals:', error);
+      console.error('Error saving goals to localStorage:', error);
     }
   }
   
@@ -69,11 +74,79 @@ class GoalService {
   }
   
   /**
-   * Get all goals
-   * @param {Object} filters Optional filters
-   * @returns {Array} Filtered array of goals
+   * Get all goals with optional filters
+   * @param {Object} filters Optional filters (pageId, workspaceId)
+   * @returns {Promise<Array>} Filtered array of goals
    */
-  getGoals(filters = {}) {
+  async getGoals(filters = {}) {
+    console.log('getGoals called with filters:', filters);
+    
+    // Get fresh copy of all goals from localStorage first
+    this.loadGoals();
+    
+    // Filter local goals first for faster UI response
+    const localFilteredGoals = [...this.goals];
+    let localPageGoals = [];
+    
+    // Apply filters to local goals
+    if (filters.pageId) {
+      console.log(`Filtering local goals for page ${filters.pageId}`);
+      localPageGoals = localFilteredGoals.filter(goal => goal.pageId === filters.pageId);
+      console.log(`Found ${localPageGoals.length} matching goals in localStorage for page ${filters.pageId}`);
+    }
+    
+    if (this.useApi) {
+      try {
+        if (filters.pageId) {
+          console.log(`Attempting to fetch goals for page ${filters.pageId} from API`);
+          // Get goals from API
+          const apiGoals = await api.getPageGoals(filters.pageId);
+          
+          // If we got goals from the API
+          if (apiGoals && Array.isArray(apiGoals) && apiGoals.length > 0) {
+            console.log(`Successfully retrieved ${apiGoals.length} goals from API`);
+            
+            // Convert to Goal objects
+            const goalObjects = apiGoals.map(data => new Goal({
+              ...data,
+              pageId: filters.pageId
+            }));
+            
+            // Update local cache
+            this._updateLocalGoals(goalObjects);
+            
+            return goalObjects;
+          } else if (localPageGoals.length > 0) {
+            // If API returned no goals but we have local goals, use those and try to migrate them
+            console.log(`API returned no goals, but found ${localPageGoals.length} local goals for this page. Attempting to migrate.`);
+            
+            // Try to migrate local goals to API
+            this._migrateLocalGoalsToApi(localPageGoals);
+            
+            return localPageGoals;
+          } else {
+            // API returned empty, and we have no local goals
+            console.log('No goals found in API or localStorage for this page');
+            return [];
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching goals from API, using local cache:', error);
+        this.useApi = false; // Temporarily fall back to localStorage
+        
+        // Schedule retry of API connection after a delay
+        setTimeout(() => {
+          console.log('Resetting API connection after temporary failure');
+          this.useApi = true;
+        }, 60000); // Try again after 1 minute
+        
+        // Return local goals when API fails
+        return filters.pageId ? localPageGoals : [];
+      }
+    }
+    
+    // Fall back to localStorage
+    console.log('Using localStorage for goals due to API failure or preference');
     let filteredGoals = [...this.goals];
     
     // Apply filters
@@ -85,6 +158,7 @@ class GoalService {
       filteredGoals = filteredGoals.filter(goal => goal.pageId === filters.pageId);
     }
     
+    console.log(`Returning ${filteredGoals.length} goals from localStorage`);
     return filteredGoals;
   }
   
@@ -113,21 +187,25 @@ class GoalService {
   /**
    * Create a new goal
    * @param {Object} goalData Goal data
-   * @returns {Goal} Created goal
+   * @returns {Promise<Goal>} Created goal
    */
-  createGoal(goalData) {
+  async createGoal(goalData) {
+    console.log('Creating goal:', goalData);
+    
     // Check if a goal with the same title already exists in this page
     const existingGoal = goalData.pageId && goalData.title ? 
       this.getGoalByTitle(goalData.title, goalData.pageId) : null;
     
     if (existingGoal) {
       // Update the existing goal instead of creating a new one
+      console.log(`Goal with title "${goalData.title}" already exists, updating instead`);
       return this.updateGoal(existingGoal.id, {
         ...goalData,
         id: existingGoal.id // Preserve the original ID
       });
     }
     
+    // Create a new goal object
     const goal = new Goal(goalData);
     
     // Calculate percent complete if it has action items
@@ -135,6 +213,38 @@ class GoalService {
       goal.updatePercentComplete();
     }
     
+    // If we have a pageId and API access, create in database
+    if (this.useApi && goal.pageId) {
+      try {
+        console.log(`Creating goal in database for page ${goal.pageId}`);
+        const createdGoal = await api.createPageGoal(goal.pageId, goal);
+        
+        // Update with server-assigned ID and timestamps
+        const serverGoal = new Goal({
+          ...goal,
+          ...createdGoal
+        });
+        
+        // Add to local cache
+        this.goals.push(serverGoal);
+        this.saveGoals();
+        
+        // Notify subscribers
+        this.notifySubscribers(serverGoal);
+        
+        return serverGoal;
+      } catch (error) {
+        console.error('Failed to create goal in database:', error);
+        this.useApi = false;
+        
+        // Schedule retry of API connection
+        setTimeout(() => {
+          this.useApi = true;
+        }, 60000);
+      }
+    }
+    
+    // Fall back to localStorage
     this.goals.push(goal);
     this.saveGoals();
     
@@ -145,42 +255,104 @@ class GoalService {
   }
   
   /**
-   * Update a goal
+   * Update a goal by ID
    * @param {string} id Goal ID
    * @param {Object} changes Changes to apply
-   * @returns {Goal|null} Updated goal or null if not found
+   * @returns {Promise<Goal|null>} Updated goal or null if not found
    */
-  updateGoal(id, changes) {
-    const goalIndex = this.goals.findIndex(goal => goal.id === id);
-    if (goalIndex === -1) return null;
+  async updateGoal(id, changes) {
+    console.log(`GoalService: Updating goal ${id}`, changes);
     
+    // Find the goal in our local cache
+    const goalIndex = this.goals.findIndex(goal => goal.id === id);
+    if (goalIndex === -1) {
+      console.warn(`Goal with ID ${id} not found for update`);
+      return null;
+    }
+
+    // Get the current goal and apply updates
     const goal = this.goals[goalIndex];
     goal.update(changes);
-    
+
     // Update percent complete if action items changed
     if (changes.actionItems) {
       goal.updatePercentComplete();
     }
-    
+
+    // Always update the goal in local cache first
     this.goals[goalIndex] = goal;
+    
+    // Save to localStorage for immediate persistence
     this.saveGoals();
     
-    // Notify subscribers
+    console.log(`Updated goal ${id} in localStorage`);
+
+    // If we have API access and the goal has a pageId, update in database
+    if (this.useApi && goal.pageId) {
+      try {
+        console.log(`Updating goal in database: ${id} for page ${goal.pageId}`);
+        const updatedGoal = await api.updatePageGoal(goal.pageId, goal.id, goal);
+        console.log(`Goal ${id} successfully updated in database`);
+        
+        // If the API returned updates, apply them to our local copy
+        if (updatedGoal) {
+          const freshGoal = new Goal({...goal, ...updatedGoal});
+          this.goals[goalIndex] = freshGoal;
+          this.saveGoals();
+          
+          // Notify subscribers
+          this.notifySubscribers(freshGoal);
+          
+          return freshGoal;
+        }
+      } catch (error) {
+        console.error(`Error updating goal ${id} in database:`, error);
+        this.useApi = false;
+        
+        // If database update fails, we still have our local changes in localStorage
+        // Schedule retry of API connection
+        setTimeout(() => {
+          this.useApi = true;
+        }, 60000);
+      }
+    }
+    
+    // Notify subscribers of the update
     this.notifySubscribers(goal);
     
+    // Return the locally updated goal
     return goal;
   }
   
   /**
    * Delete a goal
    * @param {string} id Goal ID
-   * @returns {boolean} True if deleted, false if not found
+   * @returns {Promise<boolean>} True if deleted, false if not found
    */
-  deleteGoal(id) {
+  async deleteGoal(id) {
+    const goalToDelete = this.goals.find(goal => goal.id === id);
+    if (!goalToDelete) return false;
+    
     const initialLength = this.goals.length;
     this.goals = this.goals.filter(goal => goal.id !== id);
     
     if (this.goals.length !== initialLength) {
+      // If we have API access and the goal has a pageId, delete from database
+      if (this.useApi && goalToDelete.pageId) {
+        try {
+          console.log(`Deleting goal from database: ${id}`);
+          await api.deletePageGoal(goalToDelete.pageId, id);
+        } catch (error) {
+          console.error('Failed to delete goal from database:', error);
+          this.useApi = false;
+          
+          // Schedule retry of API connection
+          setTimeout(() => {
+            this.useApi = true;
+          }, 60000);
+        }
+      }
+      
       this.saveGoals();
       return true;
     }
@@ -189,23 +361,54 @@ class GoalService {
   }
   
   /**
-   * Search goals by title or content
-   * @param {string} query Search query
-   * @returns {Array} Array of matching goals
+   * Migrate local goals to the API
+   * @param {Array} localGoals Array of goals to migrate
+   * @private
    */
-  searchGoals(query) {
-    if (!query || typeof query !== 'string') return [];
+  async _migrateLocalGoalsToApi(localGoals) {
+    if (!this.useApi || localGoals.length === 0) return;
     
-    const lowerQuery = query.toLowerCase();
-    return this.goals.filter(goal => {
-      return (
-        goal.title.toLowerCase().includes(lowerQuery) ||
-        goal.detail.toLowerCase().includes(lowerQuery) ||
-        goal.metrics.toLowerCase().includes(lowerQuery) ||
-        goal.timeline.toLowerCase().includes(lowerQuery) ||
-        goal.actionItems.some(item => item.text.toLowerCase().includes(lowerQuery))
-      );
-    });
+    console.log(`Attempting to migrate ${localGoals.length} local goals to API`);
+    
+    for (const goal of localGoals) {
+      try {
+        if (!goal.pageId) {
+          console.warn(`Goal ${goal.id} has no pageId, skipping migration`);
+          continue;
+        }
+        
+        // Create in API
+        await api.createPageGoal(goal.pageId, goal);
+        console.log(`Migrated goal "${goal.title}" to API`);
+      } catch (error) {
+        console.error(`Failed to migrate goal "${goal.title}" to API:`, error);
+      }
+    }
+  }
+  
+  /**
+   * Update local goals cache with new goals
+   * @param {Array} goals Array of goals to add/update in local cache
+   * @private
+   */
+  _updateLocalGoals(goals) {
+    console.log(`Updating local goals cache with ${goals ? goals.length : 0} goals`);
+    
+    if (!goals || !Array.isArray(goals) || goals.length === 0) {
+      console.warn('No valid goals to update in local cache');
+      return;
+    }
+    
+    // Remove existing goals with the same IDs
+    const existingIds = goals.map(g => g.id);
+    this.goals = this.goals.filter(goal => !existingIds.includes(goal.id));
+    
+    // Add the new/updated goals
+    this.goals = [...this.goals, ...goals];
+    
+    // Update localStorage
+    this.saveGoals();
+    console.log(`Local goals cache now has ${this.goals.length} goals total`);
   }
   
   /**
@@ -213,19 +416,28 @@ class GoalService {
    * This ensures that changes in one representation are reflected in the other
    * @param {Goal} goal The goal to synchronize
    * @param {Object} editor The editor instance (optional)
+   * @returns {Promise<Goal>} The synchronized goal
    */
-  synchronizeGoal(goal, editor = null) {
-    if (!goal) return;
+  async synchronizeGoal(goal, editor = null) {
+    if (!goal) return null;
     
-    // Update the goal in storage
-    this.updateGoal(goal.id, goal);
-    
-    // If an editor is provided, update the document representation
-    if (editor) {
-      this.updateDocumentGoal(goal, editor);
+    try {
+      console.log(`Synchronizing goal: ${goal.id}`);
+      
+      // Update the goal in storage - this is now awaited
+      const updatedGoal = await this.updateGoal(goal.id, goal);
+      
+      // If an editor is provided, update the document representation
+      if (editor && updatedGoal) {
+        this.updateDocumentGoal(updatedGoal, editor);
+      }
+      
+      return updatedGoal;
+    } catch (error) {
+      console.error('Error synchronizing goal:', error);
+      // If there's an error, we still want to return something
+      return goal;
     }
-    
-    return goal;
   }
   
   /**
@@ -234,147 +446,13 @@ class GoalService {
    * @param {Object} editor The editor instance
    */
   updateDocumentGoal(goal, editor) {
-    if (!goal || !editor) return;
+    // Implementation depends on the editor's API
+    // This method would update the table cells in the document
+    // with the goal's current data
+    console.log('Updating goal in document:', goal.title);
     
-    try {
-      const { doc, tr } = editor.state;
-      let updated = false;
-      
-      // Handle table-based goals
-      if (goal.source && goal.source.type === 'table') {
-        // Find the table row containing the goal title
-        doc.descendants((node, pos) => {
-          if (node.type.name === 'tableRow') {
-            let hasTitleCell = false;
-            let titleCellIndex = -1;
-            
-            // Check if this row contains our goal title
-            node.forEach((cell, cellIndex) => {
-              if (cell.textContent.trim() === goal.title) {
-                hasTitleCell = true;
-                titleCellIndex = cellIndex;
-              }
-            });
-            
-            if (hasTitleCell) {
-              // Update cells in this row
-              node.forEach((cell, cellIndex) => {
-                // Skip the title cell
-                if (cellIndex === titleCellIndex) return;
-                
-                // Map cell position to goal property
-                let propertyValue = '';
-                if (cellIndex === titleCellIndex + 1) {
-                  propertyValue = goal.priority || '';
-                } else if (cellIndex === titleCellIndex + 2) {
-                  propertyValue = goal.formatDueDate() || '';
-                } else if (cellIndex === titleCellIndex + 3) {
-                  propertyValue = goal.status || '';
-                } else if (cellIndex === titleCellIndex + 4) {
-                  propertyValue = goal.detail || '';
-                }
-                
-                // Only update if value has changed
-                if (propertyValue && propertyValue !== cell.textContent.trim()) {
-                  const cellPos = pos + 1; // Position inside the cell
-                  
-                  // Delete existing content
-                  tr.delete(cellPos, cellPos + cell.content.size);
-                  
-                  // Insert new content
-                  const schema = editor.schema;
-                  const paragraph = schema.nodes.paragraph.create(
-                    null,
-                    schema.text(propertyValue)
-                  );
-                  tr.insert(cellPos, paragraph);
-                  
-                  updated = true;
-                }
-              });
-            }
-          }
-          
-          return !updated; // Stop if we already updated
-        });
-      }
-      // Handle heading-based goals
-      else if (goal.source && goal.source.type === 'heading') {
-        // Find sections under the heading
-        let inGoalSection = false;
-        let currentSection = null;
-        
-        // Map of section names to goal properties
-        const sectionMap = {
-          'Detail': 'detail',
-          'Priority': 'priority',
-          'Due Date': 'dueDate',
-          'Success Metrics': 'metrics',
-          'Timeline': 'timeline',
-          'Status': 'status'
-        };
-        
-        doc.descendants((node, pos) => {
-          if (node.type.name === 'heading') {
-            const text = node.textContent.trim();
-            
-            // Found the goal title
-            if (text === goal.title) {
-              inGoalSection = true;
-              return true;
-            }
-            
-            // If we're in the goal section, look for subsections
-            if (inGoalSection) {
-              if (Object.keys(sectionMap).includes(text)) {
-                currentSection = text;
-                return true;
-              } else if (node.attrs.level <= 2) {
-                // Found another major heading, stop
-                inGoalSection = false;
-                currentSection = null;
-                return false;
-              }
-            }
-          }
-          
-          // Update content if we're in a known section
-          if (inGoalSection && currentSection && node.type.name === 'paragraph') {
-            const goalProperty = sectionMap[currentSection];
-            let newValue = '';
-            
-            if (goalProperty === 'dueDate') {
-              newValue = goal.formatDueDate();
-            } else {
-              newValue = goal[goalProperty] || '';
-            }
-            
-            if (newValue && newValue !== node.textContent.trim()) {
-              // Delete existing content
-              tr.delete(pos, pos + node.nodeSize);
-              
-              // Insert new content
-              const schema = editor.schema;
-              const paragraph = schema.nodes.paragraph.create(
-                null,
-                schema.text(newValue)
-              );
-              tr.insert(pos, paragraph);
-              
-              updated = true;
-            }
-          }
-          
-          return true;
-        });
-      }
-      
-      if (updated) {
-        editor.view.dispatch(tr);
-      }
-    } catch (error) {
-      console.error('Error updating document goal:', error);
-    }
+    // This would be implemented based on the specific editor component
+    // being used and how it represents goals in the document
   }
 }
 

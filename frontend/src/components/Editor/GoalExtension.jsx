@@ -5,9 +5,159 @@ import { ReactDOM } from 'react-dom';
 import GoalOpenButton from '../GoalOpenButton';
 import React from 'react';
 
+// Maintain a list of recently created headings (via slash command) to ignore
+let recentlyCreatedHeadings = new Set();
+let recentlyCreatedTables = new Set();
+
+// Clear older entries periodically
+setInterval(() => {
+  recentlyCreatedHeadings.clear();
+  recentlyCreatedTables.clear();
+}, 10000); // Clear every 10 seconds
+
 export default function createGoalExtension(handleOpenGoal) {
   return Extension.create({
     name: 'goalExtension',
+    
+    // Add a handler for the slash command to track when elements are created
+    addKeyboardShortcuts() {
+      return {
+        '/': () => {
+          // Record the current selection position
+          const { $head } = this.editor.state.selection;
+          const position = $head.pos;
+          
+          // Store this position as potentially becoming a heading or table
+          setTimeout(() => {
+            // Check for heading
+            const node = this.editor.view.state.doc.nodeAt(position);
+            if (node && node.type.name === 'heading') {
+              recentlyCreatedHeadings.add(position);
+              
+              // Remove from tracking after 5 seconds
+              setTimeout(() => {
+                recentlyCreatedHeadings.delete(position);
+              }, 5000);
+            }
+            
+            // Check if a table was created nearby
+            this.editor.view.state.doc.nodesBetween(
+              Math.max(0, position - 10),
+              Math.min(this.editor.view.state.doc.content.size, position + 100),
+              (node, pos) => {
+                if (node.type.name === 'table') {
+                  console.log('Table detected near slash command position');
+                  recentlyCreatedTables.add(pos);
+                  
+                  // Apply contenteditable attributes immediately using DOM methods
+                  setTimeout(() => {
+                    try {
+                      const tableNode = this.editor.view.nodeDOM(pos);
+                      if (tableNode && tableNode.tagName === 'TABLE') {
+                        console.log('Found slash-created table - making it fully editable');
+                        
+                        // Add special indicator to make it independent from goal tables
+                        tableNode.setAttribute('data-slash-created', 'true');
+                        tableNode.classList.remove('goal-table');
+                        
+                        // Make sure the table can be edited
+                        tableNode.setAttribute('contenteditable', 'true');
+                        
+                        // Make all cells editable - both directly and by setting contenteditable
+                        const allCells = tableNode.querySelectorAll('td, th');
+                        allCells.forEach(cell => {
+                          // Set direct contenteditable attribute
+                          cell.setAttribute('contenteditable', 'true');
+                          cell.setAttribute('data-no-special-handling', 'true');
+                          
+                          // Set critical styles for editability
+                          cell.style.userModify = 'read-write';
+                          cell.style.webkitUserModify = 'read-write';
+                          cell.style.mozUserModify = 'read-write';
+                          cell.style.msUserSelect = 'text';
+                          cell.style.webkitUserSelect = 'text';
+                          cell.style.userSelect = 'text';
+                          cell.style.pointerEvents = 'auto';
+                          cell.style.cursor = 'text';
+                          
+                          // Special handling for columns 2-4 which may get special handling
+                          const cellIndex = Array.from(cell.parentNode.children).indexOf(cell);
+                          if (cellIndex >= 1 && cellIndex <= 3) { // 2nd, 3rd, 4th columns (0-indexed)
+                            cell.classList.add('regular-column');
+                            cell.setAttribute('data-regular-column', 'true');
+                            cell.setAttribute('data-special-column-bypass', 'true');
+                            
+                            // Even more aggressive override for these specific columns
+                            cell.style.cssText += `
+                              -webkit-user-modify: read-write !important;
+                              -moz-user-modify: read-write !important;
+                              user-modify: read-write !important;
+                              contenteditable: true !important;
+                              -webkit-user-select: text !important;
+                              -moz-user-select: text !important;
+                              -ms-user-select: text !important;
+                              user-select: text !important;
+                              cursor: text !important;
+                              background-color: white !important;
+                              text-align: left !important;
+                            `;
+                            
+                            // Add inline script to ensure it remains editable
+                            // (This is a last resort but might be necessary)
+                            const pElement = cell.querySelector('p') || document.createElement('p');
+                            pElement.setAttribute('contenteditable', 'true');
+                            pElement.style.cssText += `
+                              -webkit-user-modify: read-write !important;
+                              -moz-user-modify: read-write !important;
+                              user-modify: read-write !important;
+                              contenteditable: true !important;
+                              cursor: text !important;
+                            `;
+                          }
+                          
+                          // Remove any special classes or attributes
+                          cell.classList.remove('priority-cell', 'status-cell', 'due-date-cell');
+                          cell.removeAttribute('data-priority');
+                          cell.removeAttribute('data-status');
+                          cell.removeAttribute('data-due-date');
+                          
+                          // Make sure paragraph is editable too
+                          const p = cell.querySelector('p') || document.createElement('p');
+                          if (!cell.querySelector('p')) {
+                            p.textContent = cell.textContent || '';
+                            cell.innerHTML = '';
+                            cell.appendChild(p);
+                          }
+                          
+                          p.setAttribute('contenteditable', 'true');
+                          p.style.userModify = 'read-write';
+                          p.style.webkitUserModify = 'read-write';
+                          p.style.mozUserModify = 'read-write';
+                          p.style.cursor = 'text';
+                        });
+                      }
+                    } catch (e) {
+                      console.error('Error making table cells editable:', e);
+                    }
+                  }, 100);
+                  
+                  // Remove from tracking after 20 seconds (longer time to ensure CSS applies and user can edit)
+                  setTimeout(() => {
+                    // Don't remove the data-slash-created attribute, just stop tracking them
+                    // This ensures ongoing edits won't be affected by decoration updates
+                    recentlyCreatedTables.delete(pos);
+                    
+                    console.log('Table removed from tracking but keeping data-slash-created attribute');
+                  }, 20000);
+                }
+              }
+            );
+          }, 500); // Check after a delay to allow the command to complete
+          
+          return false; // Don't handle the command, just track it
+        }
+      };
+    },
     
     addProseMirrorPlugins() {
       return [
@@ -22,8 +172,87 @@ export default function createGoalExtension(handleOpenGoal) {
               // Track first cells of rows to identify title cells
               const firstCellsInRows = new Set();
               
-              // First pass: identify first cell in each row
+              // Check if we're in a goal template
+              let isGoalTemplate = false;
+              
+              // First find if this document contains a "Goals Tracker" heading
               doc.descendants((node, pos) => {
+                if (node.type.name === 'heading' && node.textContent.trim() === 'Goals Tracker') {
+                  isGoalTemplate = true;
+                  return false; // Stop traversal once found
+                }
+                return true;
+              });
+              
+              // First pass: add class to tables in goal templates and identify first cells
+              doc.descendants((node, pos) => {
+                // Handle tables - add goal-table class to tables in goal templates
+                if (node.type.name === 'table') {
+                  // Determine column count for this table
+                  let columnCount = 0;
+                  if (node.childCount > 0) {
+                    const firstRow = node.child(0);
+                    if (firstRow && firstRow.type.name === 'tableRow') {
+                      columnCount = firstRow.childCount;
+                    }
+                  }
+                  
+                  // Check if this table was recently created via slash command
+                  const isSlashCreatedTable = recentlyCreatedTables.has(pos);
+                  
+                  // Only style tables in goal templates with the goal-table class
+                  if (isGoalTemplate) {
+                    // Check if this looks like a goal table (has title 'Goal' in first cell of first row)
+                    let isGoalTable = false;
+                    
+                    // Examine first row to check if it's a goal table
+                    if (node.childCount > 0) {
+                      const firstRow = node.child(0);
+                      if (firstRow.type.name === 'tableRow' && firstRow.childCount > 0) {
+                        const firstHeaderCell = firstRow.child(0);
+                        if (firstHeaderCell && firstHeaderCell.textContent) {
+                          const headerText = firstHeaderCell.textContent.trim().toLowerCase();
+                          if (headerText === 'goal' || 
+                              headerText === 'goal name' || 
+                              headerText.includes('goal')) {
+                            isGoalTable = true;
+                          }
+                        }
+                      }
+                    }
+                    
+                    // Apply the goal-table class if it's a goal table or we're in a goal template
+                    decorations.push(
+                      Decoration.node(pos, pos + node.nodeSize, {
+                        class: 'goal-table'
+                      })
+                    );
+                  } else {
+                    // For non-goal tables, add column count to help with CSS styling
+                    // Also add a special attribute for slash-created tables
+                    const tableAttrs = {
+                      'data-column-count': columnCount
+                    };
+                    
+                    // Add a special attribute for slash-created tables
+                    if (isSlashCreatedTable) {
+                      tableAttrs['data-slash-created'] = 'true';
+                      
+                      // For slash-created tables, we only want to add the attribute
+                      // and avoid any additional decorations that might interfere with editing
+                      decorations.push(
+                        Decoration.node(pos, pos + node.nodeSize, tableAttrs)
+                      );
+                      return true; // Skip additional processing for this table to prevent any interference with editing
+                    } else {
+                      decorations.push(
+                        Decoration.node(pos, pos + node.nodeSize, tableAttrs)
+                      );
+                    }
+                  }
+                }
+                
+                // Track table rows
                 if (node.type.name === 'tableRow') {
                   // Find the first cell in this row
                   if (node.childCount > 0) {
@@ -34,10 +263,11 @@ export default function createGoalExtension(handleOpenGoal) {
                     }
                   }
                 }
+                
                 return true;
               });
               
-              // Second pass: add decorations
+              // Second pass: add decorations for headings and cells
               doc.descendants((node, pos) => {
                 // Check if the node is a heading level 1 or 2
                 if (node.type.name === 'heading' && (node.attrs.level === 1 || node.attrs.level === 2)) {
@@ -48,12 +278,27 @@ export default function createGoalExtension(handleOpenGoal) {
                     return true;
                   }
                   
+                  // Skip recently created headings (from slash commands) if not in a goal template
+                  if (!isGoalTemplate && recentlyCreatedHeadings.has(pos)) {
+                    return true;
+                  }
+                  
+                  // Only add goal buttons to headings in goal templates unless
+                  // the heading explicitly looks like a goal
+                  const looksLikeGoalHeading = headingText.includes('Goal:') || 
+                                              /goal\s+\d+/i.test(headingText) ||
+                                              /milestone\s+\d+/i.test(headingText);
+                  
+                  if (!isGoalTemplate && !looksLikeGoalHeading) {
+                    return true;
+                  }
+                  
                   // Only add the button if the heading contains text
                   if (headingText && headingText.trim()) {
                     // Check if heading has the no-button attribute
                     const hasNoButtonAttribute = node.attrs && 
-                                                node.attrs.HTMLAttributes && 
-                                                node.attrs.HTMLAttributes['data-no-goal-button'] === 'true';
+                                               node.attrs.HTMLAttributes && 
+                                               node.attrs.HTMLAttributes['data-no-goal-button'] === 'true';
                     
                     if (hasNoButtonAttribute) {
                       return true;
@@ -72,11 +317,33 @@ export default function createGoalExtension(handleOpenGoal) {
                 }
                 // Check if this is a table cell that might contain a goal title
                 else if ((node.type.name === 'tableCell' || node.type.name === 'tableHeader')) {
+                  // Check if this cell is in a slash-created table
+                  let isInSlashCreatedTable = false;
+                  
+                  // Check parent nodes to see if this cell is in a slash-created table
+                  doc.nodesBetween(Math.max(0, pos - 100), pos, (n, p) => {
+                    if (n.type.name === 'table' && recentlyCreatedTables.has(p)) {
+                      isInSlashCreatedTable = true;
+                      return false; // Stop traversal
+                    }
+                    return true;
+                  });
+                  
+                  // Skip adding decorations to cells in slash-created tables completely
+                  if (isInSlashCreatedTable) {
+                    return true; // Skip processing entirely to ensure normal cell editing
+                  }
+                  
                   // Check if this is the first cell in a row (goal title column)
                   const isTitleCell = Array.from(firstCellsInRows).some(rowPos => {
                     // The node position should be a bit after the row position we stored
                     return Math.abs(pos - rowPos) < 10; // Approximate matching
                   });
+                  
+                  // Skip if this cell is not in a goal template and not a title cell
+                  if (!isGoalTemplate && !isTitleCell) {
+                    return true;
+                  }
                   
                   if (isTitleCell) {
                     const cellContent = node.textContent.trim();

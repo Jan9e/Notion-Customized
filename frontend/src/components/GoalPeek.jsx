@@ -213,73 +213,87 @@ export default function GoalPeek({ isOpen, onClose, goalData, onUpdate = () => {
   
   // Debounced update function
   const debouncedUpdate = (updatedGoal) => {
+    console.log('Debounced update called with:', updatedGoal.title, 'ID:', updatedGoal.id);
     setSaveState('saving');
     
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
+      console.log('Cleared previous save timeout');
     }
     
     // Set a new timeout for the actual update
     saveTimeoutRef.current = setTimeout(() => {
-      onUpdate(updatedGoal);
+      console.log('Executing update for goal:', updatedGoal.title, 'ID:', updatedGoal.id);
+      
+      // Create a deep copy of the goal to avoid reference issues
+      const goalToSave = JSON.parse(JSON.stringify(updatedGoal));
+      
+      // Save the goal (this triggers the parent component's onUpdate)
+      console.log('Calling onUpdate with goal:', goalToSave);
+      onUpdate(goalToSave);
+      
       setSaveState('saved');
+      console.log('Save state set to "saved"');
+      
+      // Clear the timeout reference 
+      saveTimeoutRef.current = null;
     }, 500); // 500ms debounce
   };
   
-  // Handle field changes with debounce for text fields
+  // Handle field change - ensure it triggers an immediate state update and a save
   const handleFieldChange = (field, value) => {
+    // Create a new goal object with the updated field
     const updatedGoal = {
       ...goal,
       [field]: value
     };
     
+    // Update local state immediately for responsiveness
     setGoal(updatedGoal);
     
-    // Use debounced update for text fields
-    if (['title', 'detail', 'metrics', 'timeline'].includes(field)) {
-      debouncedUpdate(updatedGoal);
-    } else {
-      // Immediate update for select fields and date picker
-      setSaveState('saving');
-      onUpdate(updatedGoal);
-      setSaveState('saved');
-    }
+    // Trigger the debounced update to save the changes
+    debouncedUpdate(updatedGoal);
   };
   
-  // Handle action item changes
+  // Handle action item change
   const handleActionItemChange = (index, changes) => {
-    const updatedItems = [...goal.actionItems];
-    updatedItems[index] = { ...updatedItems[index], ...changes };
+    // Create deep copy of action items to avoid mutation issues
+    const updatedItems = [...(goal.actionItems || [])].map(item => ({...item}));
     
+    // Update the specific item
+    if (updatedItems[index]) {
+      updatedItems[index] = {
+        ...updatedItems[index],
+        ...changes
+      };
+    }
+    
+    // Create updated goal with new action items
     const updatedGoal = {
       ...goal,
       actionItems: updatedItems
     };
     
+    // Update local state
     setGoal(updatedGoal);
     
-    // Use debounced update for text changes, immediate for checkbox
-    if ('text' in changes) {
-      debouncedUpdate(updatedGoal);
-    } else {
-      setSaveState('saving');
-      onUpdate(updatedGoal);
-      setSaveState('saved');
-    }
+    // Trigger save with complete goal object
+    debouncedUpdate(updatedGoal);
   };
   
   // Add a new action item
   const addActionItem = () => {
     const updatedGoal = {
       ...goal,
-      actionItems: [...goal.actionItems, { text: '', completed: false }]
+      actionItems: [...(goal.actionItems || []), { text: '', completed: false }]
     };
     
+    // Update local state
     setGoal(updatedGoal);
-    setSaveState('saving');
-    onUpdate(updatedGoal);
-    setSaveState('saved');
+    
+    // Save changes using the same debounced mechanism
+    debouncedUpdate(updatedGoal);
   };
   
   // Priority color styling
@@ -452,14 +466,6 @@ export default function GoalPeek({ isOpen, onClose, goalData, onUpdate = () => {
               style={{ width: `${progress}%` }}
             ></div>
           </div>
-          
-          {/* Status indicator */}
-          <div 
-            className="px-2.5 py-1 rounded-full text-xs font-medium"
-            style={getStatusStyle(goal.status)}
-          >
-            {goal.status}
-          </div>
         </div>
         
         {/* Summary info */}
@@ -468,93 +474,11 @@ export default function GoalPeek({ isOpen, onClose, goalData, onUpdate = () => {
             <CheckCircle size={12} className="mr-1" />
             <span>{goal.actionItems.filter(item => item.completed).length}/{goal.actionItems.length} tasks</span>
           </div>
-          {goal.dueDate && (
-            <div className="flex items-center">
-              <Clock size={12} className="mr-1" />
-              <span>Due {formatDate(goal.dueDate)}</span>
-            </div>
-          )}
         </div>
       </div>
       
       {/* Redesigned scrollable content */}
       <div className="flex-1 overflow-y-auto p-6 space-y-7 bg-gray-50 bg-opacity-40">
-        {/* Priority, Status & Due Date in a card */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 space-y-5">
-          {/* Priority and Status in a row */}
-          <div className="flex gap-4">
-            {/* Priority dropdown with improved styling */}
-            <div className="flex-1 min-w-[120px]">
-              <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                <div className="w-5 h-5 mr-2 text-yellow-500">
-                  <BarChart2 size={16} />
-                </div>
-                Priority
-              </label>
-              <select
-                value={goal.priority}
-                onChange={(e) => handleFieldChange('priority', e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                style={getPriorityStyle(goal.priority)}
-              >
-                {priorityOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.value}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            {/* Status dropdown with improved styling */}
-            <div className="flex-1 min-w-[120px]">
-              <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                <div className="w-5 h-5 mr-2 text-blue-500">
-                  <CheckCircle size={16} />
-                </div>
-                Status
-              </label>
-              <select
-                value={goal.status}
-                onChange={(e) => handleFieldChange('status', e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                style={getStatusStyle(goal.status)}
-              >
-                {statusOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.value}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          {/* Due date picker in its own row */}
-          <div>
-            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-              <div className="w-5 h-5 mr-2 text-blue-500">
-                <Clock size={16} />
-              </div>
-              Due Date
-            </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={goal.dueDate}
-                onChange={(e) => handleFieldChange('dueDate', e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
-              />
-              <Calendar size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-            
-            {/* Date display (for user-friendly format) */}
-            {goal.dueDate && (
-              <div className="flex items-center text-sm text-gray-500 mt-1.5 ml-7">
-                <span>{formatDate(goal.dueDate)}</span>
-              </div>
-            )}
-          </div>
-        </div>
-        
         {/* Detail section with card styling */}
         <section className="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
           <h3 className="flex items-center text-sm font-medium text-gray-700 mb-3 group-hover:text-indigo-600 transition-colors">
@@ -604,7 +528,7 @@ export default function GoalPeek({ isOpen, onClose, goalData, onUpdate = () => {
               value={goal.timeline}
               onChange={(e) => handleFieldChange('timeline', e.target.value)}
               className="w-full bg-gray-50 p-4 rounded-lg border border-transparent min-h-[100px] transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-              placeholder="Set deadlines and milestones"
+              placeholder="Outline key milestones and deadlines for this goal"
             />
           </div>
         </section>

@@ -250,18 +250,29 @@ export default function GoalEnabledEditor({ content, onUpdate, pageId }) {
   // Load goals for this page on mount
   useEffect(() => {
     if (pageId) {
-      const pageGoals = goalService.getGoals({ pageId });
-      setGoals(pageGoals);
-      
-      // If there's a goal ID in the location state, open that goal automatically
-      const openGoalId = location.state?.openGoalId;
-      if (openGoalId) {
-        const goalToOpen = pageGoals.find(goal => goal.id === openGoalId);
-        if (goalToOpen) {
-          setActiveGoal(goalToOpen);
-          setIsPeekOpen(true);
+      // Create async function to load goals
+      const loadGoals = async () => {
+        try {
+          const pageGoals = await goalService.getGoals({ pageId });
+          setGoals(pageGoals || []);
+          
+          // If there's a goal ID in the location state, open that goal automatically
+          const openGoalId = location.state?.openGoalId;
+          if (openGoalId) {
+            const goalToOpen = pageGoals.find(goal => goal.id === openGoalId);
+            if (goalToOpen) {
+              setActiveGoal(goalToOpen);
+              setIsPeekOpen(true);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading goals:', error);
+          setGoals([]);
         }
-      }
+      };
+      
+      // Execute the async function
+      loadGoals();
     }
   }, [pageId, location.state]);
   
@@ -273,15 +284,17 @@ export default function GoalEnabledEditor({ content, onUpdate, pageId }) {
       if (updatedGoal.pageId === pageId) {
         // Update local goals list
         setGoals(prevGoals => {
-          const index = prevGoals.findIndex(g => g.id === updatedGoal.id);
+          // Ensure prevGoals is an array
+          const currentGoals = Array.isArray(prevGoals) ? prevGoals : [];
+          const index = currentGoals.findIndex(g => g.id === updatedGoal.id);
           if (index >= 0) {
             // Update existing goal
-            const newGoals = [...prevGoals];
+            const newGoals = [...currentGoals];
             newGoals[index] = updatedGoal;
             return newGoals;
           } else {
             // Add new goal
-            return [...prevGoals, updatedGoal];
+            return [...currentGoals, updatedGoal];
           }
         });
         
@@ -385,13 +398,32 @@ export default function GoalEnabledEditor({ content, onUpdate, pageId }) {
   }, [editorInstance, pageId, isPeekOpen, activeGoal]);
   
   // Handle goal data updates
-  const handleGoalUpdate = useCallback((updatedGoal) => {
-    // Use the synchronize method from our service
-    goalService.synchronizeGoal(updatedGoal, editorInstance);
-    
-    // Update the active goal
-    setActiveGoal(updatedGoal);
-  }, [editorInstance]);
+  const handleGoalUpdate = useCallback(async (updatedGoal) => {
+    console.log('Goal update received:', updatedGoal.title, 'with new data:', updatedGoal);
+
+    // Ensure the goal has the correct pageId
+    if (!updatedGoal.pageId && pageId) {
+      updatedGoal.pageId = pageId;
+    }
+
+    try {
+      // Make sure we have a clean, serializable goal object
+      const cleanGoal = { ...updatedGoal };
+      
+      // Use the synchronize method from our service (wrapped in Promise to handle async)
+      const result = await Promise.resolve(goalService.synchronizeGoal(cleanGoal, editorInstance));
+      
+      // Update the local state only after successful synchronization
+      if (result) {
+        setActiveGoal(result);
+        console.log('Goal successfully updated and synchronized', result.title);
+      }
+    } catch (error) {
+      console.error('Error in handleGoalUpdate:', error);
+      // Fallback to direct update without synchronization in case of error
+      setActiveGoal(updatedGoal);
+    }
+  }, [editorInstance, pageId]);
   
   // Create the goal extension with our handler
   const goalExtension = createGoalExtension(handleOpenGoal);
@@ -404,8 +436,19 @@ export default function GoalEnabledEditor({ content, onUpdate, pageId }) {
     if (!isProcessingRef.current && isPeekOpen) {
       isProcessingRef.current = true;
       
-      // Emit state change first to update button appearance
+      // Save any pending changes to the active goal before closing
       if (activeGoal) {
+        console.log('Saving goal data before closing peek:', activeGoal.id);
+        // Make sure the goal is properly saved to both localStorage and API
+        goalService.updateGoal(activeGoal.id, activeGoal)
+          .then(() => {
+            console.log('Goal successfully saved before closing');
+          })
+          .catch(error => {
+            console.error('Error saving goal before closing:', error);
+          });
+        
+        // Emit state change to update button appearance
         emitGoalStateChange(activeGoal.id, false);
       }
       

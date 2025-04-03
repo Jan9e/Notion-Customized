@@ -1,6 +1,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../middleware/auth');
+const cuid = require('cuid');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -331,6 +332,201 @@ router.put('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error updating page:', error);
     res.status(500).json({ message: 'Error updating page' });
+  }
+});
+
+// Add these endpoints for managing goal data
+
+/**
+ * Get all goals for a page
+ */
+router.get('/:id/goals', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const page = await prisma.page.findUnique({
+      where: { id },
+      select: { 
+        goalData: true,
+        userId: true
+      }
+    });
+    
+    // Authorization check
+    if (!page || page.userId !== req.user.userId) {
+      return res.status(403).json({ message: 'Not authorized to access this page' });
+    }
+    
+    // Return the goals array or an empty array if none exist
+    const goals = page.goalData?.goals || [];
+    res.json(goals);
+  } catch (error) {
+    console.error('Error fetching goals:', error);
+    res.status(500).json({ message: 'Error fetching goals' });
+  }
+});
+
+/**
+ * Create a new goal for a page
+ */
+router.post('/:id/goals', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const goalData = req.body;
+    
+    console.log(`Creating goal for page ${id}:`, goalData);
+    
+    // First check if user has access to this page
+    const page = await prisma.page.findUnique({
+      where: { id },
+      select: { userId: true, goalData: true }
+    });
+    
+    if (!page) {
+      console.log(`Page not found: ${id}`);
+      return res.status(404).json({ message: 'Page not found' });
+    }
+    
+    if (page.userId !== req.user.userId) {
+      console.log(`Authorization failed. Page userId: ${page.userId}, requesting userId: ${req.user.userId}`);
+      return res.status(403).json({ message: 'Not authorized to update this page' });
+    }
+    
+    // Get current goals array or initialize it
+    const currentGoalData = page.goalData || { goals: [] };
+    const goals = currentGoalData.goals || [];
+    
+    console.log('Current goals count:', goals.length);
+    
+    // Generate an ID for the new goal if not provided
+    const newGoal = {
+      ...goalData,
+      id: goalData.id || cuid(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Add the new goal to the array
+    goals.push(newGoal);
+    
+    console.log(`Updating page ${id} with ${goals.length} goals`);
+    
+    // Update the page with the new goals array
+    const updatedPage = await prisma.page.update({
+      where: { id },
+      data: { 
+        goalData: { 
+          goals: goals 
+        } 
+      },
+      select: { goalData: true }
+    });
+    
+    console.log('Goal created successfully, new goal count:', updatedPage.goalData?.goals?.length || 0);
+    res.status(201).json(newGoal);
+  } catch (error) {
+    console.error('Error creating goal:', error.message, error.stack);
+    res.status(500).json({ message: 'Error creating goal', error: error.message });
+  }
+});
+
+/**
+ * Update a specific goal within a page
+ */
+router.put('/:pageId/goals/:goalId', authenticateToken, async (req, res) => {
+  try {
+    const { pageId, goalId } = req.params;
+    const goalUpdates = req.body;
+    
+    // First check if user has access to this page
+    const page = await prisma.page.findUnique({
+      where: { id: pageId },
+      select: { userId: true, goalData: true }
+    });
+    
+    if (!page || page.userId !== req.user.userId) {
+      return res.status(403).json({ message: 'Not authorized to update this page' });
+    }
+    
+    // Get current goal data
+    const goalData = page.goalData || { goals: [] };
+    const goals = goalData.goals || [];
+    
+    // Find the goal to update
+    const goalIndex = goals.findIndex(g => g.id === goalId);
+    
+    if (goalIndex === -1) {
+      return res.status(404).json({ message: 'Goal not found' });
+    }
+    
+    // Update the goal
+    goals[goalIndex] = {
+      ...goals[goalIndex],
+      ...goalUpdates,
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Save updated goal data
+    const updatedPage = await prisma.page.update({
+      where: { id: pageId },
+      data: { 
+        goalData: { 
+          goals: goals 
+        } 
+      },
+      select: { goalData: true }
+    });
+    
+    res.json(goals[goalIndex]);
+  } catch (error) {
+    console.error('Error updating goal:', error);
+    res.status(500).json({ message: 'Error updating goal' });
+  }
+});
+
+/**
+ * Delete a goal from a page
+ */
+router.delete('/:pageId/goals/:goalId', authenticateToken, async (req, res) => {
+  try {
+    const { pageId, goalId } = req.params;
+    
+    // First check if user has access to this page
+    const page = await prisma.page.findUnique({
+      where: { id: pageId },
+      select: { userId: true, goalData: true }
+    });
+    
+    if (!page || page.userId !== req.user.userId) {
+      return res.status(403).json({ message: 'Not authorized to update this page' });
+    }
+    
+    // Get current goal data
+    const goalData = page.goalData || { goals: [] };
+    const goals = goalData.goals || [];
+    
+    // Remove the goal
+    const newGoals = goals.filter(g => g.id !== goalId);
+    
+    // If no goals were removed, the goal wasn't found
+    if (newGoals.length === goals.length) {
+      return res.status(404).json({ message: 'Goal not found' });
+    }
+    
+    // Save updated goal data
+    await prisma.page.update({
+      where: { id: pageId },
+      data: { 
+        goalData: { 
+          goals: newGoals 
+        } 
+      }
+    });
+    
+    res.json({ success: true, message: 'Goal deleted' });
+  } catch (error) {
+    console.error('Error deleting goal:', error);
+    res.status(500).json({ message: 'Error deleting goal' });
   }
 });
 

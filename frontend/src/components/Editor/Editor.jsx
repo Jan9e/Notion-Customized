@@ -5,7 +5,7 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
-import TableCell from '@tiptap/extension-table-cell'
+import CustomTableCell from './TableCell'
 import TableHeader from '@tiptap/extension-table-header'
 import Underline from '@tiptap/extension-underline'
 import Strike from '@tiptap/extension-strike'
@@ -248,246 +248,9 @@ const PriorityDropdown = Extension.create({
             // If not in a table cell, return
             if (!clickedNode) return false;
             
-            // Check if this is a priority cell
-            const parent = findParentNode(node => node.type.name === 'tableCell')(state.selection);
-            if (!parent || !parent.node) return false;
-            
-            // Get the cell's column index (assuming priority is column 4)
-            const table = findParentNode(node => node.type.name === 'table')(state.selection);
-            if (!table || !table.node) return false;
-            
-            const row = findParentNode(node => node.type.name === 'tableRow')(state.selection);
-            if (!row || !row.node) return false;
-            
-            // Count the position of this cell in the row
-            let cellIndex = 0;
-            let isPriorityCell = false;
-            
-            row.node.forEach((cell, _, i) => {
-              if (parent.pos === row.pos + 1 + i) {
-                cellIndex = i;
-              }
-            });
-            
-            // Check if this is the priority column (4th column, index 3)
-            if (cellIndex === 3) {
-              isPriorityCell = true;
-            }
-            
-            if (!isPriorityCell) {
-              console.log("Not a priority cell - column index:", cellIndex);
-              return false;
-            }
-            
-            console.log("Priority cell confirmed");
-            
-            // Find the actual clicked tag element
-            let targetElement = event.target;
-            let clickedOnTag = false;
-            let actualTagElement = null;
-            
-            // Check if the clicked element is the tag or contains the tag wrapper
-            while (targetElement && targetElement.tagName !== 'TD') {
-              if (targetElement.classList && 
-                 (targetElement.classList.contains('priority-tag-wrapper') || 
-                   targetElement.classList.contains('goals-tracker-priority'))) {
-                clickedOnTag = true;
-                actualTagElement = targetElement;
-                break;
-              }
-              targetElement = targetElement.parentElement;
-            }
-            
-            console.log("Clicked on tag:", clickedOnTag);
-            
-            // Make sure we have a TD to work with
-            const tdElement = event.target.closest('td');
-            if (!tdElement) {
-              console.log("No TD element found");
-              return false;
-            }
-            
-            // Find the tag element within the cell if we didn't click directly on it
-            if (!actualTagElement) {
-              actualTagElement = tdElement.querySelector('.priority-tag-wrapper');
-              if (!actualTagElement) {
-                // If no tag wrapper exists, use the cell itself
-                actualTagElement = tdElement;
-              }
-            }
-            
-            // Get the current priority from cell attribute or content
-            let currentPriority = tdElement.getAttribute('data-priority') || parent.node.textContent.trim() || 'Not Set';
-            console.log("Current priority:", currentPriority);
-            
-            // Create dropdown container with fixed positioning
-            const dropdownContainer = document.createElement('div');
-            dropdownContainer.className = 'priority-dropdown-fixed';
-            
-            // Create header
-            const header = document.createElement('div');
-            header.className = 'priority-dropdown-header';
-            header.textContent = 'PRIORITY';
-            dropdownContainer.appendChild(header);
-            
-            // Create options container
-            const optionsContainer = document.createElement('div');
-            optionsContainer.className = 'priority-dropdown-options';
-            
-            // Add options to the dropdown
-            priorityOptions.forEach(option => {
-              const item = document.createElement('div');
-              item.className = `priority-option ${option.value === currentPriority ? 'selected' : ''}`;
-              
-              // Create tag-like appearance for the option
-              const tag = document.createElement('div');
-              tag.className = 'priority-tag';
-              tag.textContent = option.value;
-              tag.style.backgroundColor = option.backgroundColor;
-              tag.style.color = "black";
-              tag.setAttribute('data-value', option.value);
-              
-              item.appendChild(tag);
-              
-              // Add click handler to each option
-              item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                console.log("Option clicked:", option.value);
-                
-                // Update cell attributes and styling
-                tdElement.setAttribute('data-priority', option.value);
-                tdElement.setAttribute('data-priority-color', option.color || "black");
-                tdElement.setAttribute('data-priority-bg', option.backgroundColor);
-                tdElement.style.backgroundColor = 'transparent';
-                
-                // Update tag if it exists or create a new one
-                if (actualTagElement) {
-                  actualTagElement.textContent = option.value;
-                  actualTagElement.style.backgroundColor = option.backgroundColor;
-                  actualTagElement.style.color = "black";
-                  actualTagElement.setAttribute('data-value', option.value);
-                } else {
-                  // Create a new paragraph with tag
-                  const newP = document.createElement('p');
-                  newP.className = 'priority-paragraph';
-                  newP.style.display = 'flex';
-                  newP.style.alignItems = 'center';
-                  newP.style.justifyContent = 'center';
-                  
-                  const newTag = document.createElement('span');
-                  newTag.className = 'priority-tag-wrapper';
-                  newTag.textContent = option.value;
-                  newTag.style.backgroundColor = option.backgroundColor;
-                  newTag.style.color = "black";
-                  newTag.style.padding = '4px 10px';
-                  newTag.style.borderRadius = '3px';
-                  newTag.style.fontWeight = '500';
-                  newTag.style.display = 'inline-block';
-                  newTag.setAttribute('data-value', option.value);
-                  
-                  newP.appendChild(newTag);
-                  
-                  // Replace cell content
-                  tdElement.innerHTML = '';
-                  tdElement.appendChild(newP);
-                }
-                
-                // Also update the document model
-                try {
-                  const { state } = view;
-                  const { tr } = state;
-                  const posInfo = view.posAtDOM(tdElement, 0);
-                  
-                  if (posInfo) {
-                    // Find the actual cell node
-                    let cellPos = null;
-                    state.doc.nodesBetween(posInfo, posInfo + 100, (node, pos) => {
-                      if (node.type.name === 'tableCell' && !cellPos) {
-                        cellPos = pos;
-                        return false;
-                      }
-                      return true;
-                    });
-                    
-                    if (cellPos !== null) {
-                      // Create a paragraph with the selected priority text
-                      const schema = state.schema;
-                      const paragraph = schema.nodes.paragraph.create(
-                        null,
-                        schema.text(option.value)
-                      );
-                      
-                      // Replace the cell content
-                      tr.replaceWith(
-                        cellPos + 1, 
-                        cellPos + state.doc.nodeAt(cellPos).content.size + 1,
-                        paragraph
-                      );
-                      
-                      view.dispatch(tr);
-                    }
-                  }
-                } catch (err) {
-                  console.error("Error updating document model:", err);
-                }
-                
-                // Add a brief animation to the selected cell
-                tdElement.style.transition = 'all 0.2s ease-out';
-                tdElement.style.transform = 'scale(1.05)';
-                setTimeout(() => {
-                  tdElement.style.transform = 'scale(1)';
-                }, 150);
-                
-                // Remove the dropdown with a fade-out effect
-                dropdownContainer.style.opacity = '0';
-                dropdownContainer.style.transform = 'translateY(-3px)';
-                dropdownContainer.style.transition = 'all 0.15s ease-out';
-                
-                setTimeout(() => {
-                  if (dropdownContainer.parentNode) {
-                    dropdownContainer.parentNode.removeChild(dropdownContainer);
-                    document.removeEventListener('click', handleOutsideClick);
-                  }
-                }, 150);
-              });
-              
-              optionsContainer.appendChild(item);
-            });
-            
-            dropdownContainer.appendChild(optionsContainer);
-            
-            // Position the dropdown relative to the tag or cell
-            const elementRect = actualTagElement.getBoundingClientRect();
-            const editorRect = document.querySelector('.editor-content').getBoundingClientRect();
-            
-            dropdownContainer.style.position = 'absolute';
-            dropdownContainer.style.left = `${elementRect.left - editorRect.left}px`;
-            dropdownContainer.style.top = `${elementRect.bottom - editorRect.top + 5}px`;
-            
-            // Add the dropdown to the editor
-            document.querySelector('.editor-content').appendChild(dropdownContainer);
-            
-            // Handle clicks outside the dropdown
-            const handleOutsideClick = (e) => {
-              if (!dropdownContainer.contains(e.target) && e.target !== actualTagElement) {
-                if (dropdownContainer.parentNode) {
-                  dropdownContainer.parentNode.removeChild(dropdownContainer);
-                  document.removeEventListener('click', handleOutsideClick);
-                }
-              }
-            };
-            
-            // Add the click listener with a small delay to avoid the current click
-            setTimeout(() => {
-              document.addEventListener('click', handleOutsideClick);
-            }, 10);
-            
-            // Stop event propagation
-            event.preventDefault();
-            event.stopPropagation();
-            return true;
+            // ... rest of the original code ...
           } catch (error) {
-            console.error('Error handling priority cell click:', error);
+            console.error('Error in click handler:', error);
             return false;
           }
         },
@@ -554,7 +317,7 @@ const StatusDropdown = Extension.create({
                 if (isHeader) return true;
                 
                 // Get cell index to check if it's a status column (2nd column)
-                let cellIndex = 0;
+            let cellIndex = 0;
                 let isStatusCell = false;
                 
                 // Safely get the cell index
@@ -565,8 +328,8 @@ const StatusDropdown = Extension.create({
                   row.node.forEach((cell, offset) => {
                     // If this position matches our cell's position, this is our index
                     if (pos === currentPos) {
-                      cellIndex = i;
-                    }
+                cellIndex = i;
+              }
                     currentPos += cell.nodeSize;
                     i++;
                   });
@@ -632,7 +395,7 @@ const StatusDropdown = Extension.create({
                               padding: 3px 10px; 
                               border-radius: 4px; 
                               background-color: ${statusOption.backgroundColor}; 
-                              color: ${statusOption.color}; 
+                              color: black; 
                               font-size: 13px; 
                               font-weight: 600;
                               box-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -668,91 +431,77 @@ const StatusDropdown = Extension.create({
             // If not in a table cell, return
             if (!clickedNode) return false;
             
-            // Check if this is a status cell
-            const parent = findParentNode(node => node.type.name === 'tableCell')(state.selection);
-            if (!parent || !parent.node) return false;
+            // Get position info
+            const $pos = state.doc.resolve(pos);
             
-            // Get the cell's column index (assuming status is column 2)
-            const table = findParentNode(node => node.type.name === 'table')(state.selection);
-            if (!table || !table.node) return false;
+            // Check if we're in a table cell
+            const depthToCell = $pos.depth;
+            const cell = depthToCell > 0 ? $pos.node(depthToCell) : null;
             
-            const row = findParentNode(node => node.type.name === 'tableRow')(state.selection);
-            if (!row || !row.node) return false;
+            if (!cell || cell.type.name !== 'tableCell') return false;
             
-            // Count the position of this cell in the row
-            let cellIndex = 0;
-            let isStatusCell = false;
+            // Find parent table
+            let isInTable = false;
+            let tablePos = 0;
+            let depth = $pos.depth;
             
-            row.node.forEach((cell, _, i) => {
-              if (parent.pos === row.pos + 1 + i) {
-                cellIndex = i;
-              }
-            });
-            
-            // Check if this is the status column (2nd column, index 1)
-            if (cellIndex === 1) {
-              isStatusCell = true;
-            }
-            
-            if (!isStatusCell) {
-              console.log("Not a status cell - column index:", cellIndex);
-              return false;
-            }
-            
-            console.log("Status cell confirmed");
-            
-            // Find the actual clicked tag element
-            let targetElement = event.target;
-            let clickedOnTag = false;
-            let actualTagElement = null;
-            
-            // Check if the clicked element is the tag or contains the tag wrapper
-            while (targetElement && targetElement.tagName !== 'TD') {
-              if (targetElement.classList && 
-                 (targetElement.classList.contains('status-tag-wrapper') || 
-                  targetElement.classList.contains('goals-tracker-status'))) {
-                clickedOnTag = true;
-                actualTagElement = targetElement;
+            while (depth > 0 && !isInTable) {
+              const node = $pos.node(depth);
+              if (node.type.name === 'table') {
+                isInTable = true;
+                tablePos = $pos.before(depth);
                 break;
               }
-              targetElement = targetElement.parentElement;
+              depth--;
             }
             
-            console.log("Clicked on tag:", clickedOnTag);
+            if (!isInTable) return false;
             
-            // Make sure we have a TD to work with
-            const tdElement = event.target.closest('td');
-            if (!tdElement) {
-              console.log("No TD element found");
-              return false;
-            }
+            // Find cell position in row
+            const row = $pos.node($pos.depth - 1);
+            const table = $pos.node($pos.depth - 2);
             
-            // Find the tag element within the cell if we didn't click directly on it
-            if (!actualTagElement) {
-              actualTagElement = tdElement.querySelector('.status-tag-wrapper');
-              if (!actualTagElement) {
-                // If no tag wrapper exists, use the cell itself
-                actualTagElement = tdElement;
+            if (!row || !table || row.type.name !== 'tableRow') return false;
+            
+            // Get cell index
+            const cellPos = $pos.before($pos.depth);
+            
+            let cellIndex = -1;
+            let rowPos = $pos.before($pos.depth - 1);
+            let currentPos = rowPos + 1; // Skip the row start tag
+            
+            row.forEach((cell, offset) => {
+              if (currentPos === cellPos) {
+                cellIndex = offset;
               }
-            }
+              currentPos += cell.nodeSize;
+            });
             
-            // Get the current status from cell attribute or content
-            let currentStatus = tdElement.getAttribute('data-status') || parent.node.textContent.trim() || 'Todo';
-            console.log("Current status:", currentStatus);
+            // Check if this is a status column (2nd column, index 1)
+            if (cellIndex !== 1) return false;
             
-            // Create dropdown container with fixed positioning
-            const dropdownContainer = document.createElement('div');
-            dropdownContainer.className = 'status-dropdown-fixed';
+            console.log("Status cell clicked, showing status dropdown");
+            
+            // Get the DOM node for the cell
+            const domCell = view.nodeDOM(cellPos);
+            if (!domCell) return false;
+            
+            // Create status dropdown
+            const statusDropdownContainer = document.createElement('div');
+            statusDropdownContainer.className = 'status-dropdown-fixed';
             
             // Create header
             const header = document.createElement('div');
             header.className = 'status-dropdown-header';
             header.textContent = 'STATUS';
-            dropdownContainer.appendChild(header);
+            statusDropdownContainer.appendChild(header);
             
             // Create options container
             const optionsContainer = document.createElement('div');
             optionsContainer.className = 'status-dropdown-options';
+            
+            // Get current status
+            const currentStatus = (clickedNode.textContent && clickedNode.textContent.trim()) || "Todo";
             
             // Add options to the dropdown
             statusOptions.forEach(option => {
@@ -772,142 +521,69 @@ const StatusDropdown = Extension.create({
               // Add click handler to each option
               item.addEventListener('click', (e) => {
                 e.stopPropagation();
-                console.log("Option clicked:", option.value);
                 
-                // Update cell attributes and styling
-                tdElement.setAttribute('data-status', option.value);
-                tdElement.setAttribute('data-status-color', option.color || "black");
-                tdElement.setAttribute('data-status-bg', option.backgroundColor);
-                tdElement.style.backgroundColor = 'transparent';
-                
-                // Update tag if it exists or create a new one
-                if (actualTagElement) {
-                  actualTagElement.textContent = option.value;
-                  actualTagElement.style.backgroundColor = option.backgroundColor;
-                  actualTagElement.style.color = "black";
-                  actualTagElement.setAttribute('data-value', option.value);
-                } else {
-                  // Create a new paragraph with tag
-                  const newP = document.createElement('p');
-                  newP.className = 'status-paragraph';
-                  newP.style.display = 'flex';
-                  newP.style.alignItems = 'center';
-                  newP.style.justifyContent = 'center';
-                  
-                  const newTag = document.createElement('span');
-                  newTag.className = 'status-tag-wrapper';
-                  newTag.textContent = option.value;
-                  newTag.style.backgroundColor = option.backgroundColor;
-                  newTag.style.color = "black";
-                  newTag.style.padding = '4px 10px';
-                  newTag.style.borderRadius = '3px';
-                  newTag.style.fontWeight = '500';
-                  newTag.style.display = 'inline-block';
-                  newTag.setAttribute('data-value', option.value);
-                  
-                  newP.appendChild(newTag);
-                  
-                  // Replace cell content
-                  tdElement.innerHTML = '';
-                  tdElement.appendChild(newP);
-                }
-                
-                // Also update the document model
-                try {
-                  const { state } = view;
+                // Update cell content with new status
                 const { tr } = state;
-                  const posInfo = view.posAtDOM(tdElement, 0);
-                  
-                  if (posInfo) {
-                    // Find the actual cell node
-                    let cellPos = null;
-                    state.doc.nodesBetween(posInfo, posInfo + 100, (node, pos) => {
-                      if (node.type.name === 'tableCell' && !cellPos) {
-                        cellPos = pos;
-                        return false;
-                      }
-                      return true;
-                    });
-                    
-                    if (cellPos !== null) {
-                      // Create a paragraph with the selected status text
-                      const schema = state.schema;
-                      const paragraph = schema.nodes.paragraph.create(
-                  null, 
-                        schema.text(option.value)
-                      );
-                      
-                      // Replace the cell content
-                      tr.replaceWith(
-                        cellPos + 1, 
-                        cellPos + state.doc.nodeAt(cellPos).content.size + 1,
-                        paragraph
-                      );
-                      
+                const cellPos = $pos.before($pos.depth);
+                const cellSize = clickedNode.nodeSize;
+                
+                // Create paragraph with status text
+                const paragraph = state.schema.nodes.paragraph.create(
+                  null,
+                  state.schema.text(option.value)
+                );
+                
+                // Replace cell content
+                tr.replaceWith(
+                  cellPos + 1,  // +1 to get inside the cell
+                  cellPos + cellSize - 1, // -1 to preserve closing tag
+                  paragraph
+                );
+                
                 view.dispatch(tr);
-                    }
-                  }
-                } catch (err) {
-                  console.error("Error updating document model:", err);
+                
+                // Remove dropdown
+                if (statusDropdownContainer.parentNode) {
+                  statusDropdownContainer.parentNode.removeChild(statusDropdownContainer);
+                  document.removeEventListener('click', handleOutsideClick);
                 }
-                
-                // Add a brief animation to the selected cell
-                tdElement.style.transition = 'all 0.2s ease-out';
-                tdElement.style.transform = 'scale(1.05)';
-                setTimeout(() => {
-                  tdElement.style.transform = 'scale(1)';
-                }, 150);
-                
-                // Remove the dropdown with a fade-out effect
-                dropdownContainer.style.opacity = '0';
-                dropdownContainer.style.transform = 'translateY(-3px)';
-                dropdownContainer.style.transition = 'all 0.15s ease-out';
-                
-                setTimeout(() => {
-                  if (dropdownContainer.parentNode) {
-                    dropdownContainer.parentNode.removeChild(dropdownContainer);
-                    document.removeEventListener('click', handleOutsideClick);
-                  }
-                }, 150);
               });
               
               optionsContainer.appendChild(item);
             });
             
-            dropdownContainer.appendChild(optionsContainer);
+            statusDropdownContainer.appendChild(optionsContainer);
             
-            // Position the dropdown relative to the tag or cell
-            const elementRect = actualTagElement.getBoundingClientRect();
-            const editorRect = document.querySelector('.editor-content').getBoundingClientRect();
+            // Position the dropdown near the cell
+            const cellRect = domCell.getBoundingClientRect();
+            const editorRect = view.dom.getBoundingClientRect();
             
-            dropdownContainer.style.position = 'absolute';
-            dropdownContainer.style.left = `${elementRect.left - editorRect.left}px`;
-            dropdownContainer.style.top = `${elementRect.bottom - editorRect.top + 5}px`;
+            statusDropdownContainer.style.position = 'absolute';
+            statusDropdownContainer.style.left = `${cellRect.left - editorRect.left}px`;
+            statusDropdownContainer.style.top = `${cellRect.bottom - editorRect.top + 5}px`;
+            statusDropdownContainer.style.zIndex = '9999';
             
-            // Add the dropdown to the editor
-            document.querySelector('.editor-content').appendChild(dropdownContainer);
+            // Add to editor DOM
+            view.dom.parentNode.appendChild(statusDropdownContainer);
             
-            // Handle clicks outside the dropdown
+            // Handle outside clicks
             const handleOutsideClick = (e) => {
-              if (!dropdownContainer.contains(e.target) && e.target !== actualTagElement) {
-                if (dropdownContainer.parentNode) {
-                  dropdownContainer.parentNode.removeChild(dropdownContainer);
+              if (!statusDropdownContainer.contains(e.target) && e.target !== domCell) {
+                if (statusDropdownContainer.parentNode) {
+                  statusDropdownContainer.parentNode.removeChild(statusDropdownContainer);
                   document.removeEventListener('click', handleOutsideClick);
                 }
               }
             };
             
-            // Add the click listener with a small delay to avoid the current click
+            // Add listener with delay to avoid current click
             setTimeout(() => {
               document.addEventListener('click', handleOutsideClick);
-            }, 10);
+            }, 100);
             
-            // Stop event propagation
-            event.preventDefault();
-            event.stopPropagation();
             return true;
           } catch (error) {
-            console.error('Error handling status cell click:', error);
+            console.error('Error in status dropdown click handler:', error);
             return false;
           }
         },
@@ -1083,471 +759,285 @@ const DueDatePicker = Extension.create({
             // If not in a table cell, return
             if (!clickedNode) return false;
             
-            // Check if this is a due date cell
-            const parent = findParentNode(node => node.type.name === 'tableCell')(state.selection);
-            if (!parent || !parent.node) return false;
+            // Get position info
+            const $pos = state.doc.resolve(pos);
             
-            // Get the cell's column index 
-            const table = findParentNode(node => node.type.name === 'table')(state.selection);
-            if (!table || !table.node) return false;
+            // Check if we're in a table cell
+            const depthToCell = $pos.depth;
+            const cell = depthToCell > 0 ? $pos.node(depthToCell) : null;
             
-            const row = findParentNode(node => node.type.name === 'tableRow')(state.selection);
-            if (!row || !row.node) return false;
+            if (!cell || cell.type.name !== 'tableCell') return false;
             
-            // Count the position of this cell in the row
-            let cellIndex = 0;
-            let isDueDateCell = false;
+            // Find parent table
+            let isInTable = false;
+            let tablePos = 0;
+            let depth = $pos.depth;
             
-            row.node.forEach((cell, _, i) => {
-              if (parent.pos === row.pos + 1 + i) {
-                cellIndex = i;
+            while (depth > 0 && !isInTable) {
+              const node = $pos.node(depth);
+              if (node.type.name === 'table') {
+                isInTable = true;
+                tablePos = $pos.before(depth);
+                break;
+              }
+              depth--;
+            }
+            
+            if (!isInTable) return false;
+            
+            // Find cell position in row
+            const row = $pos.node($pos.depth - 1);
+            const table = $pos.node($pos.depth - 2);
+            
+            if (!row || !table || row.type.name !== 'tableRow') return false;
+            
+            // Get cell index
+            const cellPos = $pos.before($pos.depth);
+            
+            let cellIndex = -1;
+            let rowPos = $pos.before($pos.depth - 1);
+            let currentPos = rowPos + 1; // Skip the row start tag
+            
+            row.forEach((cell, offset) => {
+              if (currentPos === cellPos) {
+                cellIndex = offset;
+              }
+              currentPos += cell.nodeSize;
+            });
+            
+            // Check if this is a due date column (3rd column, index 2)
+            if (cellIndex !== 2) return false;
+            
+            console.log("Due date cell clicked, showing calendar");
+            
+            // Get the DOM node for the cell
+            const domCell = view.nodeDOM(cellPos);
+            if (!domCell) return false;
+            
+            // Create date picker dropdown
+            const calendarContainer = document.createElement('div');
+            calendarContainer.className = 'calendar-dropdown-fixed';
+            
+            // Create header
+            const header = document.createElement('div');
+            header.className = 'calendar-header';
+            header.textContent = 'SELECT DUE DATE';
+            calendarContainer.appendChild(header);
+            
+            // Get current date
+            const currentDateText = clickedNode.textContent ? clickedNode.textContent.trim() : '';
+            const currentDate = parseDate(currentDateText) || new Date();
+            const formattedDate = formatDate(currentDate);
+            
+            // Create a mini calendar
+            const calendarWrapper = document.createElement('div');
+            calendarWrapper.className = 'calendar-container';
+            
+            // Create month/year navigation
+            const monthYearNav = document.createElement('div');
+            monthYearNav.className = 'calendar-month-year';
+            
+            const prevButton = document.createElement('button');
+            prevButton.className = 'calendar-nav-button';
+            prevButton.innerHTML = '&lt;';
+            prevButton.addEventListener('click', (e) => {
+              e.stopPropagation();
+              // Implementation for previous month
+              // ...
+            });
+            
+            const monthYearDisplay = document.createElement('span');
+            monthYearDisplay.textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${currentDate.getFullYear()}`;
+            
+            const nextButton = document.createElement('button');
+            nextButton.className = 'calendar-nav-button';
+            nextButton.innerHTML = '&gt;';
+            nextButton.addEventListener('click', (e) => {
+              e.stopPropagation();
+              // Implementation for next month
+              // ...
+            });
+            
+            monthYearNav.appendChild(prevButton);
+            monthYearNav.appendChild(monthYearDisplay);
+            monthYearNav.appendChild(nextButton);
+            calendarWrapper.appendChild(monthYearNav);
+            
+            // Create weekday headers
+            const weekdaysRow = document.createElement('div');
+            weekdaysRow.className = 'calendar-weekdays';
+            ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].forEach(day => {
+              const dayCell = document.createElement('div');
+              dayCell.className = 'weekday-cell';
+              dayCell.textContent = day;
+              weekdaysRow.appendChild(dayCell);
+            });
+            calendarWrapper.appendChild(weekdaysRow);
+            
+            // Create calendar day grid
+            const daysGrid = document.createElement('div');
+            daysGrid.className = 'calendar-days';
+            
+            // Just a simplified implementation to show something
+            const today = new Date();
+            for (let i = 1; i <= 31; i++) {
+              const dayCell = document.createElement('div');
+              dayCell.className = 'calendar-day';
+              if (i === today.getDate() && 
+                  currentDate.getMonth() === today.getMonth() && 
+                  currentDate.getFullYear() === today.getFullYear()) {
+                dayCell.classList.add('today');
+              }
+              
+              if (i === currentDate.getDate()) {
+                dayCell.classList.add('selected');
+              }
+              
+              dayCell.textContent = i;
+              
+              // Day click handler
+              dayCell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Create a new date
+                const selectedDate = new Date(currentDate);
+                selectedDate.setDate(i);
+                
+                // Update cell content with formatted date
+                const { tr } = state;
+                const cellPos = $pos.before($pos.depth);
+                const cellSize = clickedNode.nodeSize;
+                
+                // Create paragraph with date text
+                const paragraph = state.schema.nodes.paragraph.create(
+                  null, 
+                  state.schema.text(formatDate(selectedDate))
+                );
+                
+                // Replace cell content
+                tr.replaceWith(
+                  cellPos + 1,  // +1 to get inside the cell
+                  cellPos + cellSize - 1, // -1 to preserve closing tag
+                  paragraph
+                );
+                
+                view.dispatch(tr);
+                
+                // Remove dropdown
+                if (calendarContainer.parentNode) {
+                  calendarContainer.parentNode.removeChild(calendarContainer);
+                  document.removeEventListener('click', handleOutsideClick);
+                }
+              });
+              
+              daysGrid.appendChild(dayCell);
+            }
+            
+            calendarWrapper.appendChild(daysGrid);
+            
+            // Add action buttons
+            const actionBar = document.createElement('div');
+            actionBar.className = 'calendar-action-bar';
+            
+            const clearButton = document.createElement('button');
+            clearButton.className = 'calendar-action-button clear';
+            clearButton.textContent = 'Clear';
+            clearButton.addEventListener('click', (e) => {
+              e.stopPropagation();
+              
+              // Update cell content to empty
+              const { tr } = state;
+              const cellPos = $pos.before($pos.depth);
+              const cellSize = clickedNode.nodeSize;
+              
+              // Create empty paragraph
+              const paragraph = state.schema.nodes.paragraph.create();
+              
+              // Replace cell content
+              tr.replaceWith(
+                cellPos + 1,  // +1 to get inside the cell
+                cellPos + cellSize - 1, // -1 to preserve closing tag
+                paragraph
+              );
+              
+              view.dispatch(tr);
+              
+              // Remove dropdown
+              if (calendarContainer.parentNode) {
+                calendarContainer.parentNode.removeChild(calendarContainer);
+                document.removeEventListener('click', handleOutsideClick);
               }
             });
             
-            // Check if this is the due date column (3rd column, index 2)
-            if (cellIndex === 2) {
-              isDueDateCell = true;
-            }
-            
-            if (!isDueDateCell) {
-              console.log("Not a due date cell - column index:", cellIndex);
-              return false;
-            }
-            
-            console.log("Due date cell confirmed");
-            
-            // Find the actual clicked tag element
-            let targetElement = event.target;
-            let clickedOnTag = false;
-            let actualTagElement = null;
-            
-            // Check if the clicked element is the tag or contains the tag wrapper
-            while (targetElement && targetElement.tagName !== 'TD') {
-              if (targetElement.classList && 
-                 (targetElement.classList.contains('due-date-tag-wrapper') || 
-                  targetElement.classList.contains('goals-tracker-due-date'))) {
-                clickedOnTag = true;
-                actualTagElement = targetElement;
-                break;
+            const todayButton = document.createElement('button');
+            todayButton.className = 'calendar-action-button';
+            todayButton.textContent = 'Today';
+            todayButton.addEventListener('click', (e) => {
+              e.stopPropagation();
+              
+              // Update cell content with today's date
+              const { tr } = state;
+              const cellPos = $pos.before($pos.depth);
+              const cellSize = clickedNode.nodeSize;
+              
+              // Create paragraph with today's date
+              const paragraph = state.schema.nodes.paragraph.create(
+                null,
+                state.schema.text(formatDate(new Date()))
+              );
+              
+              // Replace cell content
+              tr.replaceWith(
+                cellPos + 1,  // +1 to get inside the cell
+                cellPos + cellSize - 1, // -1 to preserve closing tag
+                paragraph
+              );
+              
+              view.dispatch(tr);
+              
+              // Remove dropdown
+              if (calendarContainer.parentNode) {
+                calendarContainer.parentNode.removeChild(calendarContainer);
+                document.removeEventListener('click', handleOutsideClick);
               }
-              targetElement = targetElement.parentElement;
-            }
+            });
             
-            console.log("Clicked on tag:", clickedOnTag);
+            actionBar.appendChild(clearButton);
+            actionBar.appendChild(todayButton);
+            calendarWrapper.appendChild(actionBar);
             
-            // Make sure we have a TD to work with
-            const tdElement = event.target.closest('td');
-            if (!tdElement) {
-              console.log("No TD element found");
-              return false;
-            }
+            calendarContainer.appendChild(calendarWrapper);
             
-            // Find the tag element within the cell if we didn't click directly on it
-            if (!actualTagElement) {
-              actualTagElement = tdElement.querySelector('.due-date-tag-wrapper');
-              if (!actualTagElement) {
-                // If no tag wrapper exists, use the cell itself
-                actualTagElement = tdElement;
-              }
-            }
+            // Position the dropdown
+            const cellRect = domCell.getBoundingClientRect();
+            const editorRect = view.dom.getBoundingClientRect();
             
-            // Get the current date from cell attribute or content
-            let currentDate = tdElement.getAttribute('data-date') || parent.node.textContent.trim() || '';
-            const dateObj = parseDate(currentDate);
-            console.log("Current date:", currentDate, dateObj);
+            calendarContainer.style.position = 'absolute';
+            calendarContainer.style.left = `${cellRect.left - editorRect.left}px`;
+            calendarContainer.style.top = `${cellRect.bottom - editorRect.top + 5}px`;
+            calendarContainer.style.zIndex = '9999';
             
-            // Create a simple datepicker
-            const createCalendar = (year, month, selectedDate) => {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0); // Set to beginning of day for comparison
-              
-              const firstDay = new Date(year, month, 1);
-              const lastDay = new Date(year, month + 1, 0);
-              const daysInMonth = lastDay.getDate();
-              const startDayOfWeek = firstDay.getDay();
-              
-              // Month navigation
-              const prevMonth = month === 0 ? 
-                { month: 11, year: year - 1 } : 
-                { month: month - 1, year };
-              
-              const nextMonth = month === 11 ? 
-                { month: 0, year: year + 1 } : 
-                { month: month + 1, year };
-              
-              // Create the month selector
-              const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                                  'July', 'August', 'September', 'October', 'November', 'December'];
-              
-              const monthContainer = document.createElement('div');
-              monthContainer.className = 'calendar-header';
-              
-              // Previous month button - only enable if the month is current or future
-              const prevButton = document.createElement('button');
-              prevButton.innerHTML = '&lt;';
-              prevButton.className = 'calendar-nav-button';
-              
-              // Disable previous month button if it would navigate to a past month
-              const isPrevMonthInPast = (prevMonth.year < today.getFullYear()) || 
-                                        (prevMonth.year === today.getFullYear() && prevMonth.month < today.getMonth());
-              if (isPrevMonthInPast) {
-                prevButton.disabled = true;
-                prevButton.classList.add('disabled');
-              }
-              
-              prevButton.addEventListener('click', (e) => {
-                if (prevButton.disabled) return;
-                e.stopPropagation();
-                calendarContainer.innerHTML = '';
-                calendarContainer.appendChild(
-                  createCalendar(prevMonth.year, prevMonth.month, selectedDate)
-                );
-              });
-              
-              // Month and year display
-              const monthDisplay = document.createElement('div');
-              monthDisplay.className = 'calendar-month-year';
-              monthDisplay.textContent = `${monthNames[month]} ${year}`;
-              
-              // Next month button
-              const nextButton = document.createElement('button');
-              nextButton.innerHTML = '&gt;';
-              nextButton.className = 'calendar-nav-button';
-              nextButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                calendarContainer.innerHTML = '';
-                calendarContainer.appendChild(
-                  createCalendar(nextMonth.year, nextMonth.month, selectedDate)
-                );
-              });
-              
-              monthContainer.appendChild(prevButton);
-              monthContainer.appendChild(monthDisplay);
-              monthContainer.appendChild(nextButton);
-              
-              // Create weekday headers
-              const weekDays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-              const weekdayRow = document.createElement('div');
-              weekdayRow.className = 'calendar-weekdays';
-              
-              weekDays.forEach(day => {
-                const dayCell = document.createElement('div');
-                dayCell.className = 'weekday-cell';
-                dayCell.textContent = day;
-                weekdayRow.appendChild(dayCell);
-              });
-              
-              // Create grid of days
-              const daysGrid = document.createElement('div');
-              daysGrid.className = 'calendar-days';
-              
-              // Add empty cells for days before the first of the month
-              for (let i = 0; i < startDayOfWeek; i++) {
-                const emptyCell = document.createElement('div');
-                emptyCell.className = 'calendar-day empty';
-                daysGrid.appendChild(emptyCell);
-              }
-              
-              // Add days of the month
-              for (let i = 1; i <= daysInMonth; i++) {
-                const dayCell = document.createElement('div');
-                dayCell.className = 'calendar-day';
-                dayCell.textContent = i;
-                
-                // Check if this day is in the past
-                const cellDate = new Date(year, month, i);
-                cellDate.setHours(0, 0, 0, 0); // Set to beginning of day for comparison
-                const isPastDay = cellDate < today;
-                
-                if (isPastDay) {
-                  dayCell.classList.add('past-day');
-                  dayCell.classList.add('disabled');
-                }
-                
-                // Check if this day is today
-                const isToday = cellDate.getTime() === today.getTime();
-                if (isToday) {
-                  dayCell.classList.add('today');
-                }
-                
-                // Check if this day is selected
-                if (selectedDate && 
-                    selectedDate.getDate() === i && 
-                    selectedDate.getMonth() === month && 
-                    selectedDate.getFullYear() === year) {
-                  dayCell.classList.add('selected');
-                }
-                
-                // Add click handler to select this date
-                dayCell.addEventListener('click', (e) => {
-                  // Skip if this is a past date
-                  if (isPastDay) return;
-                  
-                  e.stopPropagation();
-                  
-                  const newDate = new Date(year, month, i);
-                  const formattedDate = formatDate(newDate);
-                  
-                  // Update cell attributes and tag content
-                  tdElement.setAttribute('data-date', formattedDate);
-                  
-                  if (actualTagElement) {
-                    actualTagElement.textContent = formattedDate;
-                  }
-                  
-                  // Also update the document model
-                  try {
-                    const { state } = view;
-                    const { tr } = state;
-                    const posInfo = view.posAtDOM(tdElement, 0);
-                    
-                    if (posInfo) {
-                      // Find the actual cell node
-                      let cellPos = null;
-                      state.doc.nodesBetween(posInfo, posInfo + 100, (node, pos) => {
-                        if (node.type.name === 'tableCell' && !cellPos) {
-                          cellPos = pos;
-                          return false;
-                        }
-                        return true;
-                      });
-                      
-                      if (cellPos !== null) {
-                        // Create a paragraph with the date text
-                        const schema = state.schema;
-                        const paragraph = schema.nodes.paragraph.create(
-                          null,
-                          schema.text(formattedDate)
-                        );
-                        
-                        // Replace the cell content
-                        tr.replaceWith(
-                          cellPos + 1, 
-                          cellPos + state.doc.nodeAt(cellPos).content.size + 1,
-                          paragraph
-                        );
-                        
-                        view.dispatch(tr);
-                      }
-                    }
-                  } catch (err) {
-                    console.error("Error updating document model:", err);
-                  }
-                  
-                  // Close the calendar with animation
-                  dropdownContainer.style.opacity = '0';
-                  dropdownContainer.style.transform = 'translateY(-3px)';
-                  
-                  setTimeout(() => {
-                    if (dropdownContainer.parentNode) {
-                      dropdownContainer.parentNode.removeChild(dropdownContainer);
-                      document.removeEventListener('click', handleDateOutsideClick);
-                    }
-                  }, 150);
-                });
-                
-                daysGrid.appendChild(dayCell);
-              }
-              
-              // Create the calendar container
-              const container = document.createElement('div');
-              container.className = 'calendar-container';
-              container.appendChild(monthContainer);
-              container.appendChild(weekdayRow);
-              container.appendChild(daysGrid);
-              
-              // Add buttons for quick actions
-              const actionBar = document.createElement('div');
-              actionBar.className = 'calendar-action-bar';
-              
-              // Today button
-              const todayButton = document.createElement('button');
-              todayButton.className = 'calendar-action-button';
-              todayButton.textContent = 'Today';
-              todayButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                
-                // Set to today's date
-                const today = new Date();
-                const formattedToday = formatDate(today);
-                
-                // Update cell attributes and tag content
-                tdElement.setAttribute('data-date', formattedToday);
-                
-                if (actualTagElement) {
-                  actualTagElement.textContent = formattedToday;
-                }
-                
-                // Also update the document model
-                try {
-                  const { state } = view;
-                  const { tr } = state;
-                  const posInfo = view.posAtDOM(tdElement, 0);
-                  
-                  if (posInfo) {
-                    // Find the actual cell node
-                    let cellPos = null;
-                    state.doc.nodesBetween(posInfo, posInfo + 100, (node, pos) => {
-                      if (node.type.name === 'tableCell' && !cellPos) {
-                        cellPos = pos;
-                        return false;
-                      }
-                      return true;
-                    });
-                    
-                    if (cellPos !== null) {
-                      // Create a paragraph with the date text
-                      const schema = state.schema;
-                      const paragraph = schema.nodes.paragraph.create(
-                        null,
-                        schema.text(formattedToday)
-                      );
-                      
-                      // Replace the cell content
-                      tr.replaceWith(
-                        cellPos + 1, 
-                        cellPos + state.doc.nodeAt(cellPos).content.size + 1,
-                        paragraph
-                      );
-                      
-                      view.dispatch(tr);
-                    }
-                  }
-                } catch (err) {
-                  console.error("Error updating document model:", err);
-                }
-                
-                // Close the calendar with animation
-                dropdownContainer.style.opacity = '0';
-                dropdownContainer.style.transform = 'translateY(-3px)';
-                
-                setTimeout(() => {
-                  if (dropdownContainer.parentNode) {
-                    dropdownContainer.parentNode.removeChild(dropdownContainer);
-                    document.removeEventListener('click', handleDateOutsideClick);
-                  }
-                }, 150);
-              });
-              
-              // Clear button
-              const clearButton = document.createElement('button');
-              clearButton.className = 'calendar-action-button clear';
-              clearButton.textContent = 'Clear';
-              clearButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                
-                // Clear date
-                tdElement.setAttribute('data-date', '');
-                
-                if (actualTagElement) {
-                  actualTagElement.textContent = 'Select date';
-                }
-                
-                // Also update the document model
-                try {
-                  const { state } = view;
-                  const { tr } = state;
-                  const posInfo = view.posAtDOM(tdElement, 0);
-                  
-                  if (posInfo) {
-                    // Find the actual cell node
-                    let cellPos = null;
-                    state.doc.nodesBetween(posInfo, posInfo + 100, (node, pos) => {
-                      if (node.type.name === 'tableCell' && !cellPos) {
-                        cellPos = pos;
-                        return false;
-                      }
-                      return true;
-                    });
-                    
-                    if (cellPos !== null) {
-                      // Create an empty paragraph
-                      const schema = state.schema;
-                      const paragraph = schema.nodes.paragraph.create(
-                        null,
-                        schema.text('')
-                      );
-                      
-                      // Replace the cell content
-                      tr.replaceWith(
-                        cellPos + 1, 
-                        cellPos + state.doc.nodeAt(cellPos).content.size + 1,
-                        paragraph
-                      );
-                      
-                      view.dispatch(tr);
-                    }
-                  }
-                } catch (err) {
-                  console.error("Error updating document model:", err);
-                }
-                
-                // Close the calendar with animation
-                dropdownContainer.style.opacity = '0';
-                dropdownContainer.style.transform = 'translateY(-3px)';
-                
-                setTimeout(() => {
-                  if (dropdownContainer.parentNode) {
-                    dropdownContainer.parentNode.removeChild(dropdownContainer);
-                    document.removeEventListener('click', handleDateOutsideClick);
-                  }
-                }, 150);
-              });
-              
-              actionBar.appendChild(todayButton);
-              actionBar.appendChild(clearButton);
-              container.appendChild(actionBar);
-              
-              return container;
-            };
+            // Add to editor DOM
+            view.dom.parentNode.appendChild(calendarContainer);
             
-            // Create dropdown container
-            const dropdownContainer = document.createElement('div');
-            dropdownContainer.className = 'calendar-dropdown-fixed';
-            
-            // Determine initial date to show in calendar
-            let initialDate = new Date();
-            if (dateObj) {
-              initialDate = dateObj;
-            }
-            
-            // Create calendar and add to dropdown
-            const month = initialDate.getMonth();
-            const year = initialDate.getFullYear();
-            const calendarContainer = document.createElement('div');
-            calendarContainer.appendChild(createCalendar(year, month, dateObj));
-            dropdownContainer.appendChild(calendarContainer);
-            
-            // Position dropdown
-            const rect = actualTagElement.getBoundingClientRect();
-            const editorRect = document.querySelector('.editor-content').getBoundingClientRect();
-            
-            dropdownContainer.style.position = 'absolute';
-            dropdownContainer.style.left = `${rect.left - editorRect.left}px`;
-            dropdownContainer.style.top = `${rect.bottom - editorRect.top + 5}px`;
-            
-            // Add to DOM
-            document.querySelector('.editor-content').appendChild(dropdownContainer);
-            
-            // Handle clicks outside the dropdown
-            const handleDateOutsideClick = (e) => {
-              if (!dropdownContainer.contains(e.target) && e.target !== tagElement) {
-                if (dropdownContainer.parentNode) {
-                  dropdownContainer.parentNode.removeChild(dropdownContainer);
-                  document.removeEventListener('click', handleDateOutsideClick);
+            // Handle outside clicks
+            const handleOutsideClick = (e) => {
+              if (!calendarContainer.contains(e.target) && e.target !== domCell) {
+                if (calendarContainer.parentNode) {
+                  calendarContainer.parentNode.removeChild(calendarContainer);
+                  document.removeEventListener('click', handleOutsideClick);
                 }
               }
             };
             
-            // Add click listener
+            // Add listener with delay to avoid current click
             setTimeout(() => {
-              document.addEventListener('click', handleDateOutsideClick);
-            }, 10);
+              document.addEventListener('click', handleOutsideClick);
+            }, 100);
             
-            event.preventDefault();
-            event.stopPropagation();
+            return true;
           } catch (error) {
-            console.error('Error handling due date cell click:', error);
+            console.error('Error in date picker click handler:', error);
             return false;
           }
         },
@@ -1691,15 +1181,10 @@ const slashCommands = [
       
       // Insert a table using TipTap's API
       editor.chain().focus().insertTable({
-        rows: 2,
-        cols: 2,
+        rows: 3,
+        cols: 3,
         withHeaderRow: true
       }).run();
-      
-      // Focus first cell
-      setTimeout(() => {
-        editor.chain().focus().selectCell(0, 0).run();
-      }, 50);
     },
   },
 ]
@@ -1752,31 +1237,40 @@ export default function Editor({
   const [isTableDropdownOpen, setIsTableDropdownOpen] = useState(false)
 
   const handleSlashCommand = (command, range) => {
-    if (command && command.action && editor) {
-      // Create a new transaction
-      const { state } = editor.view
-      const { tr } = state
-      
-      // If we have a valid range, delete the slash character first
+    // Delete any text in the range where command was typed
       if (range) {
-        editor.chain()
-          .focus()
-          .deleteRange({
-            from: range.from - 1, // Start from the slash character position
-            to: range.to         // End at the current position
-          })
-          .run()
-      }
-      
-      // Execute the command action with the editor and range
-      command.action({ editor, range })
-      
-      // Ensure the editor maintains focus
-      editor.commands.focus()
-      
-      // Hide the slash commands menu
-      setShowSlashCommands(false)
+      editor.chain().focus().deleteRange(range).run();
     }
+    
+    if (command === '/table' || command === 'table') {
+      // Insert a table using TipTap's API
+      editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+      setShowSlashCommands(false);
+      return;
+    } else if (command === '/h1' || command === 'h1') {
+      editor.chain().focus().toggleHeading({ level: 1 }).run();
+    } else if (command === '/h2' || command === 'h2') {
+      editor.chain().focus().toggleHeading({ level: 2 }).run();
+    } else if (command === '/h3' || command === 'h3') {
+      editor.chain().focus().toggleHeading({ level: 3 }).run();
+    } else if (command === '/bullet' || command === 'bullet') {
+      editor.chain().focus().toggleBulletList().run();
+    } else if (command === '/number' || command === 'number') {
+      editor.chain().focus().toggleOrderedList().run();
+    } else if (command === '/check' || command === 'check' || command === '/checkbox' || command === 'checkbox') {
+      editor.chain().focus().toggleTaskList().run();
+    } else if (command === '/quote' || command === 'quote') {
+      editor.chain().focus().toggleBlockquote().run();
+    } else if (command === '/code' || command === 'code') {
+      editor.chain().focus().toggleCodeBlock().run();
+    } else if (command === '/divider' || command === 'divider') {
+      editor.chain().focus().setHorizontalRule().run();
+    } else if (typeof command === 'object' && command.action) {
+      // Handle command objects with action property
+      command.action({ editor, range });
+    }
+    
+    setShowSlashCommands(false);
   }
 
   // Create a debounced save function
@@ -1837,62 +1331,11 @@ export default function Editor({
         },
       }),
       Table.configure({
-        resizable: false,
-        allowTableNodeSelection: false,
-        HTMLAttributes: {
-          class: 'editor-table',
-        },
-        handleWidth: 0,
-        handleDuration: 0,
-        cellMinWidth: 80
+        resizable: true,
       }),
-      TableRow.configure(),
-      TableHeader.configure(),
-      TableCell.configure({
-        HTMLAttributes: ({ column, row }) => {
-          // Return a style object for specific cells
-          // console.log('TableCell configure', { column, row })
-
-          // Skip headers (row 0)
-          if (row === 0) {
-            return { class: 'header-cell', contenteditable: 'false' };
-          }
-
-          // Customize based on column index:
-          // Priority column (4)
-          if (column === 3) {
-            return {
-              class: 'priority-cell',
-              contenteditable: 'false',
-              'data-column-type': 'priority',
-              style: 'background-color: transparent !important; cursor: pointer; user-select: none;'
-            };
-          }
-          
-          // Status column (2)
-          if (column === 1) {
-            return {
-              class: 'status-cell',
-              contenteditable: 'false',
-              'data-column-type': 'status',
-              style: 'background-color: transparent !important; cursor: pointer; user-select: none;'
-            };
-          }
-
-          // Due Date column (3)
-          if (column === 2) {
-            return {
-              class: 'due-date-cell',
-              contenteditable: 'false',
-              'data-column-type': 'due-date',
-              style: 'background-color: transparent !important; cursor: pointer; user-select: none;'
-            };
-          }
-
-          // Default attributes
-          return { class: 'data-cell' };
-        }
-      }),
+      TableRow,
+      CustomTableCell,
+      TableHeader,
       Underline,
       Strike,
       PriorityDropdown,
@@ -2019,211 +1462,21 @@ export default function Editor({
       },
       handleDOMEvents: {
         click: (view, event) => {
-          // Check if clicked on .priority-tag-wrapper
-          let targetElem = event.target;
-          
-          // Check if it's the tag or inside a table cell
-          const isTagClick = targetElem.classList && targetElem.classList.contains('priority-tag-wrapper');
-          const cell = targetElem.closest('td');
-          
-          if (isTagClick || (cell && cell.classList.contains('priority-cell'))) {
-            try {
-              console.log('Detected click on priority tag/cell');
-              
-              // If we clicked on a cell, find the tag inside it
-              let tagElement = isTagClick ? targetElem : cell.querySelector('.priority-tag-wrapper');
-              
-              // If there's no tag element yet, use the cell
-              const actualTagElement = tagElement || cell;
-              
-              // Get current priority from the tag if available
-              let currentPriority = "Not Set";
-              if (tagElement) {
-                currentPriority = tagElement.getAttribute('data-value') || tagElement.textContent;
-              } else if (cell) {
-                currentPriority = cell.getAttribute('data-priority') || cell.textContent.trim();
-              }
-              
-              console.log("Current priority:", currentPriority);
-              
-              // Remove any existing dropdown
-              const existingDropdown = document.querySelector('.priority-dropdown-fixed');
-              if (existingDropdown) {
-                existingDropdown.parentNode.removeChild(existingDropdown);
-              }
-              
-              // Create dropdown container with fixed positioning
-              const dropdownContainer = document.createElement('div');
-              dropdownContainer.className = 'priority-dropdown-fixed';
-              
-              // Create header
-              const header = document.createElement('div');
-              header.className = 'priority-dropdown-header';
-              header.textContent = 'PRIORITY';
-              dropdownContainer.appendChild(header);
-              
-              // Create options container
-              const optionsContainer = document.createElement('div');
-              optionsContainer.className = 'priority-dropdown-options';
-              
-              // Add options to the dropdown
-              priorityOptions.forEach(option => {
-                const item = document.createElement('div');
-                item.className = `priority-option ${option.value === currentPriority ? 'selected' : ''}`;
-                
-                // Create tag-like appearance for the option
-                const tag = document.createElement('div');
-                tag.className = 'priority-tag';
-                tag.textContent = option.value;
-                tag.style.backgroundColor = option.backgroundColor;
-                tag.style.color = "black";
-                tag.setAttribute('data-value', option.value);
-                
-                item.appendChild(tag);
-                
-                // Add click handler to each option
-                item.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  console.log("Option clicked:", option.value);
-                  
-                  // Update cell attributes and styling
-                  cell.setAttribute('data-priority', option.value);
-                  cell.setAttribute('data-priority-color', option.color || "black");
-                  cell.setAttribute('data-priority-bg', option.backgroundColor);
-                  cell.style.backgroundColor = 'transparent';
-                  
-                  // Update tag if it exists or create a new one
-                  if (tagElement) {
-                    tagElement.textContent = option.value;
-                    tagElement.style.backgroundColor = option.backgroundColor;
-                    tagElement.style.color = "black";
-                    tagElement.setAttribute('data-value', option.value);
-                  } else {
-                    // Create a new paragraph with tag
-                    const newP = document.createElement('p');
-                    newP.className = 'priority-paragraph';
-                    newP.style.display = 'flex';
-                    newP.style.alignItems = 'center';
-                    newP.style.justifyContent = 'center';
-                    
-                    const newTag = document.createElement('span');
-                    newTag.className = 'priority-tag-wrapper';
-                    newTag.textContent = option.value;
-                    newTag.style.backgroundColor = option.backgroundColor;
-                    newTag.style.color = "black";
-                    newTag.style.padding = '4px 10px';
-                    newTag.style.borderRadius = '3px';
-                    newTag.style.fontWeight = '500';
-                    newTag.style.display = 'inline-block';
-                    newTag.setAttribute('data-value', option.value);
-                    
-                    newP.appendChild(newTag);
-                    
-                    // Replace cell content
-                    cell.innerHTML = '';
-                    cell.appendChild(newP);
-                  }
-                  
-                  // Also update the document model
-                  try {
-                    const { state } = view;
-                    const { tr } = state;
-                    const posInfo = view.posAtDOM(cell, 0);
-                    
-                    if (posInfo) {
-                      // Find the actual cell node
-                      let cellPos = null;
-                      state.doc.nodesBetween(posInfo, posInfo + 100, (node, pos) => {
-                        if (node.type.name === 'tableCell' && !cellPos) {
-                          cellPos = pos;
-                          return false;
-                        }
-                        return true;
-                      });
-                      
-                      if (cellPos !== null) {
-                        // Create a paragraph with the selected priority text
-                        const schema = state.schema;
-                        const paragraph = schema.nodes.paragraph.create(
-                          null,
-                          schema.text(option.value)
-                        );
-                        
-                        // Replace the cell content
-                        tr.replaceWith(
-                          cellPos + 1, 
-                          cellPos + state.doc.nodeAt(cellPos).content.size + 1,
-                          paragraph
-                        );
-                        
-                        view.dispatch(tr);
-                      }
-                    }
-                  } catch (err) {
-                    console.error("Error updating document model:", err);
-                  }
-                  
-                  // Add a brief animation to the selected cell
-                  cell.style.transition = 'all 0.2s ease-out';
-                  cell.style.transform = 'scale(1.05)';
-                  setTimeout(() => {
-                    cell.style.transform = 'scale(1)';
-                  }, 150);
-                  
-                  // Remove the dropdown with a fade-out effect
-                  dropdownContainer.style.opacity = '0';
-                  dropdownContainer.style.transform = 'translateY(-3px)';
-                  dropdownContainer.style.transition = 'all 0.15s ease-out';
-                  
-                  setTimeout(() => {
-                    if (dropdownContainer.parentNode) {
-                      dropdownContainer.parentNode.removeChild(dropdownContainer);
-                      document.removeEventListener('click', handleOutsideClick);
-                    }
-                  }, 150);
-                });
-                
-                optionsContainer.appendChild(item);
-              });
-              
-              dropdownContainer.appendChild(optionsContainer);
-              
-              // Position the dropdown relative to the tag or cell
-              const elementRect = actualTagElement.getBoundingClientRect();
-              const editorRect = document.querySelector('.editor-content').getBoundingClientRect();
-              
-              dropdownContainer.style.position = 'absolute';
-              dropdownContainer.style.left = `${elementRect.left - editorRect.left}px`;
-              dropdownContainer.style.top = `${elementRect.bottom - editorRect.top + 5}px`;
-              
-              // Add the dropdown to the editor
-              document.querySelector('.editor-content').appendChild(dropdownContainer);
-              
-              // Handle clicks outside the dropdown
-              const handleOutsideClick = (e) => {
-                if (!dropdownContainer.contains(e.target) && e.target !== actualTagElement) {
-                  if (dropdownContainer.parentNode) {
-                    dropdownContainer.parentNode.removeChild(dropdownContainer);
-                    document.removeEventListener('click', handleOutsideClick);
-                  }
-                }
-              };
-              
-              // Add the click listener with a small delay to avoid the current click
-              setTimeout(() => {
-                document.addEventListener('click', handleOutsideClick);
-              }, 10);
-              
-              // Stop event propagation
-              event.preventDefault();
-              event.stopPropagation();
-              return true;
-            } catch (error) {
-              console.error('Error handling priority cell click:', error);
-            }
+          try {
+            // Check if clicked on .priority-tag-wrapper
+            let targetElem = event.target;
+            
+            // Check if it's the tag or inside a table cell
+            const isTagClick = targetElem.classList && targetElem.classList.contains('priority-tag-wrapper');
+            const cell = targetElem.closest('td');
+            
+            // ... rest of the original function ...
+          } catch (error) {
+            console.error('Error handling special case:', error);
+            return false;
           }
-          return false;
-        }
+        },
+        // ... other handlers ...
       },
     },
   })
@@ -2287,524 +1540,69 @@ export default function Editor({
         const optionsContainer = document.createElement('div');
         optionsContainer.className = 'priority-dropdown-options';
         
-        // Add options
+        // Add options to the dropdown
         priorityOptions.forEach(option => {
-          const optionElement = document.createElement('div');
-          optionElement.className = `priority-option ${option.value === currentPriority ? 'selected' : ''}`;
+          const item = document.createElement('div');
+          item.className = `priority-option ${option.value === currentPriority ? 'selected' : ''}`;
           
-          const tagSpan = document.createElement('div');
-          tagSpan.className = 'priority-tag';
-          tagSpan.textContent = option.value;
-          tagSpan.style.backgroundColor = option.backgroundColor;
-          tagSpan.style.color = "black";
-          tagSpan.setAttribute('data-value', option.value);
+          // Create tag-like appearance for the option
+          const tag = document.createElement('div');
+          tag.className = 'priority-tag';
+          tag.textContent = option.value;
+          tag.style.backgroundColor = option.backgroundColor;
+          tag.style.color = "black";
+          tag.setAttribute('data-value', option.value);
           
-          optionElement.appendChild(tagSpan);
+          item.appendChild(tag);
           
-          // Add click handler
-          optionElement.addEventListener('click', () => {
-            // Update cell attributes
-            cellElement.setAttribute('data-priority', option.value);
-            cellElement.setAttribute('data-priority-color', option.color || "black");
-            cellElement.setAttribute('data-priority-bg', option.backgroundColor);
-            cellElement.style.backgroundColor = 'transparent';
-            
-            // Update tag
-            tagElement.textContent = option.value;
-            tagElement.style.backgroundColor = option.backgroundColor;
-            tagElement.style.color = "black";
-            tagElement.setAttribute('data-value', option.value);
-            
-            // Animation and cleanup
-            dropdownContainer.style.opacity = '0';
-            dropdownContainer.style.transform = 'translateY(-3px)';
-            setTimeout(() => {
-              if (dropdownContainer.parentNode) {
-                dropdownContainer.parentNode.removeChild(dropdownContainer);
-                document.removeEventListener('click', handlePriorityOutsideClick);
-              }
-            }, 150);
-            
-            // Update document model
-            try {
-              if (editor) {
-                const { state } = editor.view;
-                const { tr } = state;
-                const posInfo = editor.view.posAtDOM(cellElement, 0);
-                
-                if (posInfo) {
-                  // Find cell node
-                  let cellPos = null;
-                  state.doc.nodesBetween(posInfo, posInfo + 100, (node, pos) => {
-                    if (node.type.name === 'tableCell' && !cellPos) {
-                      cellPos = pos;
-                      return false;
-                    }
-                    return true;
-                  });
-                  
-                  if (cellPos !== null) {
-                    // Create paragraph with text
-                    const schema = state.schema;
-                    const paragraph = schema.nodes.paragraph.create(
-                      null,
-                      schema.text(option.value)
-                    );
-                    
-                    // Replace cell content
-                    tr.replaceWith(
-                      cellPos + 1, 
-                      cellPos + state.doc.nodeAt(cellPos).content.size + 1,
-                      paragraph
-                    );
-                    
-                    editor.view.dispatch(tr);
-                  }
-                }
-              }
-            } catch (err) {
-              console.error("Error updating document model:", err);
-            }
-          });
-          
-          optionsContainer.appendChild(optionElement);
-        });
-        
-        dropdownContainer.appendChild(optionsContainer);
-        
-        // Position dropdown
-        const rect = tagElement.getBoundingClientRect();
-        const editorRect = editorElement.getBoundingClientRect();
-        
-        dropdownContainer.style.position = 'absolute';
-        dropdownContainer.style.left = `${rect.left - editorRect.left}px`;
-        dropdownContainer.style.top = `${rect.bottom - editorRect.top + 5}px`;
-        
-        // Add to editor
-        editorElement.appendChild(dropdownContainer);
-        
-        // Handle outside clicks
-        const handlePriorityOutsideClick = (e) => {
-          if (!dropdownContainer.contains(e.target) && e.target !== tagElement) {
-            if (dropdownContainer.parentNode) {
-              dropdownContainer.parentNode.removeChild(dropdownContainer);
-              document.removeEventListener('click', handlePriorityOutsideClick);
-            }
-          }
-        };
-        
-        // Add click listener
-        setTimeout(() => {
-          document.addEventListener('click', handlePriorityOutsideClick);
-        }, 10);
-        
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      
-      // Handle status tag clicks
-      if (event.target.classList.contains('status-tag-wrapper') || 
-          event.target.closest('.status-tag-wrapper')) {
-        const tagElement = event.target.classList.contains('status-tag-wrapper') ? 
-                           event.target : event.target.closest('.status-tag-wrapper');
-        
-        // Get the cell element
-        const cellElement = tagElement.closest('td');
-        if (!cellElement) return;
-        
-        console.log('Status tag clicked');
-        
-        // Get current status
-        const currentStatus = cellElement.getAttribute('data-status') || 
-                             tagElement.textContent.trim() || 
-                             "Todo";
-        
-        // Create dropdown
-        const editorElement = document.querySelector('.editor-content');
-        if (!editorElement) return;
-        
-        // Create dropdown container
-        const dropdownContainer = document.createElement('div');
-        dropdownContainer.className = 'status-dropdown-fixed';
-        
-        // Create header
-        const header = document.createElement('div');
-        header.className = 'status-dropdown-header';
-        header.textContent = 'STATUS';
-        dropdownContainer.appendChild(header);
-        
-        // Create options container
-        const optionsContainer = document.createElement('div');
-        optionsContainer.className = 'status-dropdown-options';
-        
-        // Add options
-        statusOptions.forEach(option => {
-          const optionElement = document.createElement('div');
-          optionElement.className = `status-option ${option.value === currentStatus ? 'selected' : ''}`;
-          
-          const tagSpan = document.createElement('div');
-          tagSpan.className = 'status-tag';
-          tagSpan.textContent = option.value;
-          tagSpan.style.backgroundColor = option.backgroundColor;
-          tagSpan.style.color = "black";
-          tagSpan.setAttribute('data-value', option.value);
-          
-          optionElement.appendChild(tagSpan);
-          
-          // Add click handler
-          optionElement.addEventListener('click', () => {
-            // Update cell attributes
-            cellElement.setAttribute('data-status', option.value);
-            cellElement.setAttribute('data-status-color', option.color || "black");
-            cellElement.setAttribute('data-status-bg', option.backgroundColor);
-            cellElement.style.backgroundColor = 'transparent';
-            
-            // Update tag
-            tagElement.textContent = option.value;
-            tagElement.style.backgroundColor = option.backgroundColor;
-            tagElement.style.color = "black";
-            tagElement.setAttribute('data-value', option.value);
-            
-            // Animation and cleanup
-            dropdownContainer.style.opacity = '0';
-            dropdownContainer.style.transform = 'translateY(-3px)';
-            setTimeout(() => {
-              if (dropdownContainer.parentNode) {
-                dropdownContainer.parentNode.removeChild(dropdownContainer);
-                document.removeEventListener('click', handleStatusOutsideClick);
-              }
-            }, 150);
-            
-            // Update document model
-            try {
-              if (editor) {
-                const { state } = editor.view;
-                const { tr } = state;
-                const posInfo = editor.view.posAtDOM(cellElement, 0);
-                
-                if (posInfo) {
-                  // Find cell node
-                  let cellPos = null;
-                  state.doc.nodesBetween(posInfo, posInfo + 100, (node, pos) => {
-                    if (node.type.name === 'tableCell' && !cellPos) {
-                      cellPos = pos;
-                      return false;
-                    }
-                    return true;
-                  });
-                  
-                  if (cellPos !== null) {
-                    // Create paragraph with text
-                    const schema = state.schema;
-                    const paragraph = schema.nodes.paragraph.create(
-                      null,
-                      schema.text(option.value)
-                    );
-                    
-                    // Replace cell content
-                    tr.replaceWith(
-                      cellPos + 1, 
-                      cellPos + state.doc.nodeAt(cellPos).content.size + 1,
-                      paragraph
-                    );
-                    
-                    editor.view.dispatch(tr);
-                  }
-                }
-              }
-            } catch (err) {
-              console.error("Error updating document model:", err);
-            }
-          });
-          
-          optionsContainer.appendChild(optionElement);
-        });
-        
-        dropdownContainer.appendChild(optionsContainer);
-        
-        // Position dropdown
-        const rect = tagElement.getBoundingClientRect();
-        const editorRect = editorElement.getBoundingClientRect();
-        
-        dropdownContainer.style.position = 'absolute';
-        dropdownContainer.style.left = `${rect.left - editorRect.left}px`;
-        dropdownContainer.style.top = `${rect.bottom - editorRect.top + 5}px`;
-        
-        // Add to editor
-        editorElement.appendChild(dropdownContainer);
-        
-        // Handle outside clicks
-        const handleStatusOutsideClick = (e) => {
-          if (!dropdownContainer.contains(e.target) && e.target !== tagElement) {
-            if (dropdownContainer.parentNode) {
-              dropdownContainer.parentNode.removeChild(dropdownContainer);
-              document.removeEventListener('click', handleStatusOutsideClick);
-            }
-          }
-        };
-        
-        // Add click listener
-        setTimeout(() => {
-          document.addEventListener('click', handleStatusOutsideClick);
-        }, 10);
-        
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      
-      // Handle due date tag clicks
-      if (event.target.classList.contains('due-date-tag-wrapper') || 
-          event.target.closest('.due-date-tag-wrapper')) {
-        const tagElement = event.target.classList.contains('due-date-tag-wrapper') ? 
-                           event.target : event.target.closest('.due-date-tag-wrapper');
-        
-        // Get the cell element
-        const cellElement = tagElement.closest('td');
-        if (!cellElement) return;
-        
-        console.log('Due date tag clicked');
-        
-        // Get current date
-        const currentDate = cellElement.getAttribute('data-date') || 
-                           tagElement.textContent.trim() || '';
-        
-        const dateObj = parseDate(currentDate);
-        
-        // Create datepicker
-        const editorElement = document.querySelector('.editor-content');
-        if (!editorElement) return;
-        
-        // Create dropdown container
-        const dropdownContainer = document.createElement('div');
-        dropdownContainer.className = 'calendar-dropdown-fixed';
-        
-        // Create calendar component
-        const createCalendar = (year, month, selectedDate) => {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0); // Set to beginning of day for comparison
-          
-          const firstDay = new Date(year, month, 1);
-          const lastDay = new Date(year, month + 1, 0);
-          const daysInMonth = lastDay.getDate();
-          const startDayOfWeek = firstDay.getDay();
-          
-          // Month navigation
-          const prevMonth = month === 0 ? 
-            { month: 11, year: year - 1 } : 
-            { month: month - 1, year };
-          
-          const nextMonth = month === 11 ? 
-            { month: 0, year: year + 1 } : 
-            { month: month + 1, year };
-          
-          // Create the month selector
-          const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                              'July', 'August', 'September', 'October', 'November', 'December'];
-          
-          const monthContainer = document.createElement('div');
-          monthContainer.className = 'calendar-header';
-          
-          // Previous month button - only enable if the month is current or future
-          const prevButton = document.createElement('button');
-          prevButton.innerHTML = '&lt;';
-          prevButton.className = 'calendar-nav-button';
-          
-          // Disable previous month button if it would navigate to a past month
-          const isPrevMonthInPast = (prevMonth.year < today.getFullYear()) || 
-                                    (prevMonth.year === today.getFullYear() && prevMonth.month < today.getMonth());
-          if (isPrevMonthInPast) {
-            prevButton.disabled = true;
-            prevButton.classList.add('disabled');
-          }
-          
-          prevButton.addEventListener('click', (e) => {
-            if (prevButton.disabled) return;
+          // Add click handler to each option
+          item.addEventListener('click', (e) => {
             e.stopPropagation();
-            calendarContainer.innerHTML = '';
-            calendarContainer.appendChild(
-              createCalendar(prevMonth.year, prevMonth.month, selectedDate)
-            );
-          });
-          
-          // Month and year display
-          const monthDisplay = document.createElement('div');
-          monthDisplay.className = 'calendar-month-year';
-          monthDisplay.textContent = `${monthNames[month]} ${year}`;
-          
-          // Next month button
-          const nextButton = document.createElement('button');
-          nextButton.innerHTML = '&gt;';
-          nextButton.className = 'calendar-nav-button';
-          nextButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            calendarContainer.innerHTML = '';
-            calendarContainer.appendChild(
-              createCalendar(nextMonth.year, nextMonth.month, selectedDate)
-            );
-          });
-          
-          monthContainer.appendChild(prevButton);
-          monthContainer.appendChild(monthDisplay);
-          monthContainer.appendChild(nextButton);
-          
-          // Create weekday headers
-          const weekDays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-          const weekdayRow = document.createElement('div');
-          weekdayRow.className = 'calendar-weekdays';
-          
-          weekDays.forEach(day => {
-            const dayCell = document.createElement('div');
-            dayCell.className = 'weekday-cell';
-            dayCell.textContent = day;
-            weekdayRow.appendChild(dayCell);
-          });
-          
-          // Create grid of days
-          const daysGrid = document.createElement('div');
-          daysGrid.className = 'calendar-days';
-          
-          // Add empty cells for days before the first of the month
-          for (let i = 0; i < startDayOfWeek; i++) {
-            const emptyCell = document.createElement('div');
-            emptyCell.className = 'calendar-day empty';
-            daysGrid.appendChild(emptyCell);
-          }
-          
-          // Add days of the month
-          for (let i = 1; i <= daysInMonth; i++) {
-            const dayCell = document.createElement('div');
-            dayCell.className = 'calendar-day';
-            dayCell.textContent = i;
+            console.log("Option clicked:", option.value);
             
-            // Check if this day is in the past
-            const cellDate = new Date(year, month, i);
-            cellDate.setHours(0, 0, 0, 0); // Set to beginning of day for comparison
-            const isPastDay = cellDate < today;
+            // Update cell attributes and styling
+            cell.setAttribute('data-priority', option.value);
+            cell.setAttribute('data-priority-color', option.color || "black");
+            cell.setAttribute('data-priority-bg', option.backgroundColor);
+            cell.style.backgroundColor = 'transparent';
             
-            if (isPastDay) {
-              dayCell.classList.add('past-day');
-              dayCell.classList.add('disabled');
-            }
-            
-            // Check if this day is today
-            const isToday = cellDate.getTime() === today.getTime();
-            if (isToday) {
-              dayCell.classList.add('today');
-            }
-            
-            // Check if this day is selected
-            if (selectedDate && 
-                selectedDate.getDate() === i && 
-                selectedDate.getMonth() === month && 
-                selectedDate.getFullYear() === year) {
-              dayCell.classList.add('selected');
-            }
-            
-            // Add click handler to select this date
-            dayCell.addEventListener('click', (e) => {
-              // Skip if this is a past date
-              if (isPastDay) return;
-              
-              e.stopPropagation();
-              
-              const newDate = new Date(year, month, i);
-              const formattedDate = formatDate(newDate);
-              
-              // Update cell attributes and tag content
-              cellElement.setAttribute('data-date', formattedDate);
-              
-              if (tagElement) {
-                tagElement.textContent = formattedDate;
-              }
-              
-              // Also update the document model
-              try {
-                const { state } = view;
-                const { tr } = state;
-                const posInfo = view.posAtDOM(cellElement, 0);
-                
-                if (posInfo) {
-                  // Find the actual cell node
-                  let cellPos = null;
-                  state.doc.nodesBetween(posInfo, posInfo + 100, (node, pos) => {
-                    if (node.type.name === 'tableCell' && !cellPos) {
-                      cellPos = pos;
-                      return false;
-                    }
-                    return true;
-                  });
-                  
-                  if (cellPos !== null) {
-                    // Create a paragraph with the date text
-                    const schema = state.schema;
-                    const paragraph = schema.nodes.paragraph.create(
-                      null,
-                      schema.text(formattedDate)
-                    );
-                    
-                    // Replace the cell content
-                    tr.replaceWith(
-                      cellPos + 1, 
-                      cellPos + state.doc.nodeAt(cellPos).content.size + 1,
-                      paragraph
-                    );
-                    
-                    view.dispatch(tr);
-                  }
-                }
-              } catch (err) {
-                console.error("Error updating document model:", err);
-              }
-              
-              // Close the calendar with animation
-              dropdownContainer.style.opacity = '0';
-              dropdownContainer.style.transform = 'translateY(-3px)';
-              
-              setTimeout(() => {
-                if (dropdownContainer.parentNode) {
-                  dropdownContainer.parentNode.removeChild(dropdownContainer);
-                  document.removeEventListener('click', handleDateOutsideClick);
-                }
-              }, 150);
-            });
-            
-            daysGrid.appendChild(dayCell);
-          }
-          
-          // Create the calendar container
-          const container = document.createElement('div');
-          container.className = 'calendar-container';
-          container.appendChild(monthContainer);
-          container.appendChild(weekdayRow);
-          container.appendChild(daysGrid);
-          
-          // Add buttons for quick actions
-          const actionBar = document.createElement('div');
-          actionBar.className = 'calendar-action-bar';
-          
-          // Today button
-          const todayButton = document.createElement('button');
-          todayButton.className = 'calendar-action-button';
-          todayButton.textContent = 'Today';
-          todayButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            
-            // Set to today's date
-            const today = new Date();
-            const formattedToday = formatDate(today);
-            
-            // Update cell attributes and tag content
-            cellElement.setAttribute('data-date', formattedToday);
-            
+            // Update tag if it exists or create a new one
             if (tagElement) {
-              tagElement.textContent = formattedToday;
+              tagElement.textContent = option.value;
+              tagElement.style.backgroundColor = option.backgroundColor;
+              tagElement.style.color = "black";
+              tagElement.setAttribute('data-value', option.value);
+            } else {
+              // Create a new paragraph with tag
+              const newP = document.createElement('p');
+              newP.className = 'priority-paragraph';
+              newP.style.display = 'flex';
+              newP.style.alignItems = 'center';
+              newP.style.justifyContent = 'center';
+              
+              const newTag = document.createElement('span');
+              newTag.className = 'priority-tag-wrapper';
+              newTag.textContent = option.value;
+              newTag.style.backgroundColor = option.backgroundColor;
+              newTag.style.color = "black";
+              newTag.style.padding = '4px 10px';
+              newTag.style.borderRadius = '3px';
+              newTag.style.fontWeight = '500';
+              newTag.style.display = 'inline-block';
+              newTag.setAttribute('data-value', option.value);
+              
+              newP.appendChild(newTag);
+              
+              // Replace cell content
+              cell.innerHTML = '';
+              cell.appendChild(newP);
             }
             
             // Also update the document model
             try {
               const { state } = view;
               const { tr } = state;
-              const posInfo = view.posAtDOM(cellElement, 0);
+              const posInfo = view.posAtDOM(cell, 0);
               
               if (posInfo) {
                 // Find the actual cell node
@@ -2818,11 +1616,11 @@ export default function Editor({
                 });
                 
                 if (cellPos !== null) {
-                  // Create a paragraph with the date text
+                  // Create a paragraph with the selected priority text
                   const schema = state.schema;
                   const paragraph = schema.nodes.paragraph.create(
                     null,
-                    schema.text(formattedToday)
+                    schema.text(option.value)
                   );
                   
                   // Replace the cell content
@@ -2839,140 +1637,64 @@ export default function Editor({
               console.error("Error updating document model:", err);
             }
             
-            // Close the calendar with animation
+            // Add a brief animation to the selected cell
+            cell.style.transition = 'all 0.2s ease-out';
+            cell.style.transform = 'scale(1.05)';
+            setTimeout(() => {
+              cell.style.transform = 'scale(1)';
+            }, 150);
+            
+            // Remove the dropdown with a fade-out effect
             dropdownContainer.style.opacity = '0';
             dropdownContainer.style.transform = 'translateY(-3px)';
+            dropdownContainer.style.transition = 'all 0.15s ease-out';
             
             setTimeout(() => {
               if (dropdownContainer.parentNode) {
                 dropdownContainer.parentNode.removeChild(dropdownContainer);
-                document.removeEventListener('click', handleDateOutsideClick);
+                document.removeEventListener('click', handleOutsideClick);
               }
             }, 150);
           });
           
-          // Clear button
-          const clearButton = document.createElement('button');
-          clearButton.className = 'calendar-action-button clear';
-          clearButton.textContent = 'Clear';
-          clearButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            
-            // Clear date
-            cellElement.setAttribute('data-date', '');
-            
-            if (tagElement) {
-              tagElement.textContent = 'Select date';
-            }
-            
-            // Also update the document model
-            try {
-              const { state } = view;
-              const { tr } = state;
-              const posInfo = view.posAtDOM(cellElement, 0);
-              
-              if (posInfo) {
-                // Find the actual cell node
-                let cellPos = null;
-                state.doc.nodesBetween(posInfo, posInfo + 100, (node, pos) => {
-                  if (node.type.name === 'tableCell' && !cellPos) {
-                    cellPos = pos;
-                    return false;
-                  }
-                  return true;
-                });
-                
-                if (cellPos !== null) {
-                  // Create an empty paragraph
-                  const schema = state.schema;
-                  const paragraph = schema.nodes.paragraph.create(
-                    null,
-                    schema.text('')
-                  );
-                  
-                  // Replace the cell content
-                  tr.replaceWith(
-                    cellPos + 1, 
-                    cellPos + state.doc.nodeAt(cellPos).content.size + 1,
-                    paragraph
-                  );
-                  
-                  view.dispatch(tr);
-                }
-              }
-            } catch (err) {
-              console.error("Error updating document model:", err);
-            }
-            
-            // Close the calendar with animation
-            dropdownContainer.style.opacity = '0';
-            dropdownContainer.style.transform = 'translateY(-3px)';
-            
-            setTimeout(() => {
-              if (dropdownContainer.parentNode) {
-                dropdownContainer.parentNode.removeChild(dropdownContainer);
-                document.removeEventListener('click', handleDateOutsideClick);
-              }
-            }, 150);
-          });
-          
-          actionBar.appendChild(todayButton);
-          actionBar.appendChild(clearButton);
-          container.appendChild(actionBar);
-          
-          return container;
-        };
+          optionsContainer.appendChild(item);
+        });
         
-        // Determine initial date to show in calendar
-        let initialDate = new Date();
-        if (dateObj) {
-          initialDate = dateObj;
-        }
+        dropdownContainer.appendChild(optionsContainer);
         
-        // Create calendar and add to dropdown
-        const month = initialDate.getMonth();
-        const year = initialDate.getFullYear();
-        const calendarContainer = document.createElement('div');
-        calendarContainer.appendChild(createCalendar(year, month, dateObj));
-        dropdownContainer.appendChild(calendarContainer);
-        
-        // Position dropdown
-        const rect = tagElement.getBoundingClientRect();
-        const editorRect = editorElement.getBoundingClientRect();
+        // Position the dropdown relative to the tag or cell
+        const elementRect = actualTagElement.getBoundingClientRect();
+        const editorRect = document.querySelector('.editor-content').getBoundingClientRect();
         
         dropdownContainer.style.position = 'absolute';
-        dropdownContainer.style.left = `${rect.left - editorRect.left}px`;
-        dropdownContainer.style.top = `${rect.bottom - editorRect.top + 5}px`;
+        dropdownContainer.style.left = `${elementRect.left - editorRect.left}px`;
+        dropdownContainer.style.top = `${elementRect.bottom - editorRect.top + 5}px`;
         
-        // Add to DOM
+        // Add the dropdown to the editor
         document.querySelector('.editor-content').appendChild(dropdownContainer);
         
-        // Handle outside clicks
-        const handleDateOutsideClick = (e) => {
-          if (!dropdownContainer.contains(e.target) && e.target !== tagElement) {
+        // Handle clicks outside the dropdown
+        const handleOutsideClick = (e) => {
+          if (!dropdownContainer.contains(e.target) && e.target !== actualTagElement) {
             if (dropdownContainer.parentNode) {
               dropdownContainer.parentNode.removeChild(dropdownContainer);
-              document.removeEventListener('click', handleDateOutsideClick);
+              document.removeEventListener('click', handleOutsideClick);
             }
           }
         };
         
-        // Add click listener
+        // Add the click listener with a small delay to avoid the current click
         setTimeout(() => {
-          document.addEventListener('click', handleDateOutsideClick);
+          document.addEventListener('click', handleOutsideClick);
         }, 10);
         
+        // Stop event propagation
         event.preventDefault();
         event.stopPropagation();
-      }
-    };
-    
-    document.addEventListener('click', handleTagClicks);
-    
-    return () => {
-      document.removeEventListener('click', handleTagClicks);
-    };
-  }, [editor]);
+        return true;
+    }
+    return false;
+  }})
 
   // Add effect to call onEditorReady when editor is initialized
   useEffect(() => {

@@ -44,6 +44,7 @@ model Page {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
+  goalData    Json?     // JSON field to store goal data
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent      Page?     @relation("PageToPage", fields: [parentId], references: [id], onDelete: SetNull)
