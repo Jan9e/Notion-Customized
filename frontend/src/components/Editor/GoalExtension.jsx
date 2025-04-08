@@ -534,6 +534,146 @@ export default function createGoalExtension(handleOpenGoal) {
           }
         })
       ];
+    },
+
+    update(update) {
+      // Only update if the document or selection changed
+      if (update.docChanged || update.selectionSet) {
+        // Clear existing decorations
+        this.decorations = DecorationSet.empty;
+        
+        // Only process if we have a valid view
+        if (this.view) {
+          // Create new decorations
+          const decorations = this.createDecorations(this.view.state.doc);
+          this.decorations = decorations;
+        }
+      }
+    },
+
+    createDecorations(doc) {
+      const decorations = [];
+      const recentlyCreatedHeadings = new Set();
+      const recentlyCreatedTables = new Set();
+
+      // Process headings
+      doc.descendants((node, pos) => {
+        if (node.type.name === 'heading') {
+          const headingText = node.textContent.trim();
+          if (headingText && !recentlyCreatedHeadings.has(headingText)) {
+            recentlyCreatedHeadings.add(headingText);
+            const headingId = `heading-${pos}`;
+            decorations.push(
+              Decoration.node(pos, pos + node.nodeSize, {
+                class: 'goal-heading',
+                'data-heading-id': headingId
+              })
+            );
+          }
+        }
+      });
+
+      // Process tables
+      doc.descendants((node, pos) => {
+        if (node.type.name === 'table') {
+          const tableContent = node.textContent.trim();
+          if (tableContent && !recentlyCreatedTables.has(tableContent)) {
+            recentlyCreatedTables.add(tableContent);
+            const tableId = `table-${pos}`;
+            decorations.push(
+              Decoration.node(pos, pos + node.nodeSize, {
+                class: 'goal-table',
+                'data-table-id': tableId
+              })
+            );
+          }
+        }
+      });
+
+      return DecorationSet.create(doc, decorations);
+    },
+
+    createGoalButton(goalText, handleOpenGoal, context = 'heading') {
+      // Create a unique identifier for this goal button
+      const goalId = `goal-button-${goalText.replace(/\s+/g, '-').toLowerCase()}`;
+      
+      // Check if button already exists
+      if (document.getElementById(goalId)) {
+        return null;
+      }
+
+      const button = document.createElement('button');
+      button.id = goalId;
+      button.className = 'goal-button';
+      button.innerHTML = `
+        <span class="goal-button-icon">${isOpen ? '▼' : '▶'}</span>
+        <span class="goal-button-text">${isOpen ? 'Close' : 'Open'}</span>
+      `;
+
+      // Track button state
+      let buttonState = isOpen;
+      let isProcessing = false;
+
+      // Add click handler
+      button.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Prevent rapid clicks
+        if (isProcessing) return;
+        isProcessing = true;
+        button.disabled = true;
+
+        try {
+          // Toggle button state
+          buttonState = !buttonState;
+          
+          // Update button appearance
+          button.innerHTML = `
+            <span class="goal-button-icon">${buttonState ? '▼' : '▶'}</span>
+            <span class="goal-button-text">${buttonState ? 'Close' : 'Open'}</span>
+          `;
+
+          // Dispatch custom event
+          const event = new CustomEvent('goal-button-clicked', {
+            detail: { goalText, isOpen: buttonState }
+          });
+          document.dispatchEvent(event);
+
+          // Wait for state change to complete
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } finally {
+          isProcessing = false;
+          button.disabled = false;
+        }
+      });
+
+      // Listen for goal state changes
+      const handleGoalStateChange = (e) => {
+        if (e.detail.goalText === goalText) {
+          buttonState = e.detail.isOpen;
+          button.innerHTML = `
+            <span class="goal-button-icon">${buttonState ? '▼' : '▶'}</span>
+            <span class="goal-button-text">${buttonState ? 'Close' : 'Open'}</span>
+          `;
+        }
+      };
+
+      document.addEventListener('goal-state-changed', handleGoalStateChange);
+
+      // Clean up event listener when button is removed
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (!document.body.contains(button)) {
+            document.removeEventListener('goal-state-changed', handleGoalStateChange);
+            observer.disconnect();
+          }
+        });
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      return button;
     }
   });
 }

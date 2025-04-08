@@ -10,7 +10,7 @@ import TableHeader from '@tiptap/extension-table-header'
 import Underline from '@tiptap/extension-underline'
 import Strike from '@tiptap/extension-strike'
 import Mention from '@tiptap/extension-mention'
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import tippy from 'tippy.js'
 import './Editor.css'
 import { debounce } from 'lodash'
@@ -2016,6 +2016,7 @@ export default function Editor({
         let isInTable = false
         let tableNode = null
         let tablePos = 0
+        let isGoalsTrackerTable = false
 
         // Traverse up the node tree to find if we're inside a table
         while (depth > 0 && !isInTable) {
@@ -2023,13 +2024,29 @@ export default function Editor({
           if (node.type.name === 'table') {
             isInTable = true
             tableNode = node
+            
+            // Check if this is the goals tracker table by looking at the first cell
+            if (node.childCount > 0) {
+              const firstRow = node.child(0)
+              if (firstRow && firstRow.childCount > 0) {
+                const firstCell = firstRow.child(0)
+                if (firstCell && firstCell.textContent) {
+                  const headerText = firstCell.textContent.trim().toLowerCase()
+                  if (headerText === 'goal' || headerText === 'goal name' || headerText.includes('goal')) {
+                    isGoalsTrackerTable = true
+                  }
+                }
+              }
+            }
+            
             tablePos = $pos.before(depth)
             break
           }
           depth--
         }
 
-        if (isInTable && tableNode) {
+        // Only show table controls if it's not the goals tracker table
+        if (isInTable && tableNode && !isGoalsTrackerTable) {
           // Get coordinates for the table start position
           const tableCoords = view.coordsAtPos(tablePos)
           const editorRect = view.dom.getBoundingClientRect()
