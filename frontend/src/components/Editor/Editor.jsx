@@ -239,7 +239,14 @@ const PriorityDropdown = Extension.create({
         
         handleClick(view, pos, event) {
           try {
-            console.log("PriorityDropdown click handler called", { pos });
+            // Check if this is a priority cell by DOM class first (most reliable)
+            const target = event.target;
+            const cell = target.closest('td');
+            if (!cell || !cell.classList.contains('priority-cell')) {
+              return false;
+            }
+            
+            console.log("PriorityDropdown click handler called (confirmed priority cell)", { pos });
             
             // Find the clicked node
             const { state } = view;
@@ -248,9 +255,117 @@ const PriorityDropdown = Extension.create({
             // If not in a table cell, return
             if (!clickedNode) return false;
             
-            // ... rest of the original code ...
+            // Get current priority
+            const currentPriority = (clickedNode.textContent && clickedNode.textContent.trim()) || "Not Set";
+            
+            console.log("Current priority:", currentPriority);
+            
+            // Get the cell position for dropdown placement
+            const cellRect = cell.getBoundingClientRect();
+            
+            // Use the direct DOM approach to create the dropdown
+            createDirectDomDropdown(
+              'priority',
+              priorityOptions,
+              { 
+                top: cellRect.bottom,
+                left: cellRect.left,
+                cellPos: pos // Pass the position for cell tracking
+              },
+              currentPriority,
+              (selectedPriority) => {
+                console.log("Priority selected:", selectedPriority);
+                
+                try {
+                  // Get the precise cell position to work with
+                  const $pos = state.doc.resolve(pos);
+                  
+                  // Find parent table cell node position
+                  let depth = $pos.depth;
+                  let cellPos = null;
+                  
+                  // Walk up the node hierarchy to find the table cell
+                  while (depth > 0) {
+                    const node = $pos.node(depth);
+                    if (node.type.name === 'tableCell') {
+                      cellPos = $pos.before(depth);
+                      break;
+                    }
+                    depth--;
+                  }
+                  
+                  if (!cellPos) {
+                    console.error("Could not find table cell position");
+                    return;
+                  }
+                  
+                  // Create a transaction
+                  const tr = state.tr;
+                  
+                  // Get cell node
+                  const cellNode = state.doc.nodeAt(cellPos);
+                  if (!cellNode) {
+                    console.error("Could not find cell node");
+                    return;
+                  }
+                  
+                  // Create a new text node with selected priority
+                  const textNode = state.schema.text(selectedPriority);
+                  
+                  // Create a paragraph to hold the text
+                  const paragraph = state.schema.nodes.paragraph.create(null, textNode);
+                  
+                  // Directly replace all the content of the cell with our new content
+                  const newCell = state.schema.nodes.tableCell.create(
+                    cellNode.attrs,
+                    paragraph
+                  );
+                  
+                  // Replace the entire cell to ensure clean replacement
+                  tr.replaceWith(cellPos, cellPos + cellNode.nodeSize, newCell);
+                  
+                  // Dispatch the transaction
+                  view.dispatch(tr);
+                  
+                  // Also update the DOM directly for immediate feedback
+                  // First get a reference to the cell DOM node again
+                  const cellDOM = cell;
+                  if (cellDOM) {
+                    // Create a div to hold the content
+                    const div = document.createElement('div');
+                    
+                    // Create a paragraph to match ProseMirror's structure
+                    const p = document.createElement('p');
+                    p.textContent = selectedPriority;
+                    
+                    // First clear the cell completely
+                    while (cellDOM.firstChild) {
+                      cellDOM.removeChild(cellDOM.firstChild);
+                    }
+                    
+                    // Add the new structure
+                    div.appendChild(p);
+                    cellDOM.appendChild(div);
+                    
+                    // Visual feedback
+                    cellDOM.style.transition = 'background-color 0.2s ease';
+                    cellDOM.style.backgroundColor = 'rgba(35, 131, 226, 0.1)';
+                    setTimeout(() => {
+                      cellDOM.style.backgroundColor = '';
+                    }, 300);
+                  }
+                } catch (error) {
+                  console.error("Error updating priority:", error);
+                }
+              }
+            );
+            
+            // Stop event propagation
+            event.stopPropagation();
+            event.preventDefault();
+            return true;
           } catch (error) {
-            console.error('Error in click handler:', error);
+            console.error('Error in priority dropdown click handler:', error);
             return false;
           }
         },
@@ -422,7 +537,14 @@ const StatusDropdown = Extension.create({
         
         handleClick(view, pos, event) {
           try {
-            console.log("StatusDropdown click handler called", { pos });
+            // Check if this is a status cell by DOM class first (most reliable)
+            const target = event.target;
+            const cell = target.closest('td');
+            if (!cell || !cell.classList.contains('status-cell')) {
+              return false;
+            }
+            
+            console.log("StatusDropdown click handler called (confirmed status cell)", { pos });
             
             // Find the clicked node
             const { state } = view;
@@ -431,156 +553,114 @@ const StatusDropdown = Extension.create({
             // If not in a table cell, return
             if (!clickedNode) return false;
             
-            // Get position info
-            const $pos = state.doc.resolve(pos);
+            // Get current status
+            const currentStatus = (clickedNode.textContent && clickedNode.textContent.trim()) || "Not Started";
             
-            // Check if we're in a table cell
-            const depthToCell = $pos.depth;
-            const cell = depthToCell > 0 ? $pos.node(depthToCell) : null;
+            console.log("Current status:", currentStatus);
             
-            if (!cell || cell.type.name !== 'tableCell') return false;
+            // Get the cell position for dropdown placement
+            const cellRect = cell.getBoundingClientRect();
             
-            // Find parent table
-            let isInTable = false;
-            let tablePos = 0;
-            let depth = $pos.depth;
-            
-            while (depth > 0 && !isInTable) {
-              const node = $pos.node(depth);
-              if (node.type.name === 'table') {
-                isInTable = true;
-                tablePos = $pos.before(depth);
+            // Use the direct DOM approach to create the dropdown
+            createDirectDomDropdown(
+              'status',
+              statusOptions,
+              { 
+                top: cellRect.bottom,
+                left: cellRect.left,
+                cellPos: pos // Pass the position for cell tracking
+              },
+              currentStatus,
+              (selectedStatus) => {
+                console.log("Status selected:", selectedStatus);
+                
+                try {
+                  // Get the precise cell position to work with
+                  const $pos = state.doc.resolve(pos);
+                  
+                  // Find parent table cell node position
+                  let depth = $pos.depth;
+                  let cellPos = null;
+                  
+                  // Walk up the node hierarchy to find the table cell
+                  while (depth > 0) {
+                    const node = $pos.node(depth);
+                    if (node.type.name === 'tableCell') {
+                      cellPos = $pos.before(depth);
                 break;
               }
-              depth--;
-            }
-            
-            if (!isInTable) return false;
-            
-            // Find cell position in row
-            const row = $pos.node($pos.depth - 1);
-            const table = $pos.node($pos.depth - 2);
-            
-            if (!row || !table || row.type.name !== 'tableRow') return false;
-            
-            // Get cell index
-            const cellPos = $pos.before($pos.depth);
-            
-            let cellIndex = -1;
-            let rowPos = $pos.before($pos.depth - 1);
-            let currentPos = rowPos + 1; // Skip the row start tag
-            
-            row.forEach((cell, offset) => {
-              if (currentPos === cellPos) {
-                cellIndex = offset;
-              }
-              currentPos += cell.nodeSize;
-            });
-            
-            // Check if this is a status column (2nd column, index 1)
-            if (cellIndex !== 1) return false;
-            
-            console.log("Status cell clicked, showing status dropdown");
-            
-            // Get the DOM node for the cell
-            const domCell = view.nodeDOM(cellPos);
-            if (!domCell) return false;
-            
-            // Create status dropdown
-            const statusDropdownContainer = document.createElement('div');
-            statusDropdownContainer.className = 'status-dropdown-fixed';
-            
-            // Create header
-            const header = document.createElement('div');
-            header.className = 'status-dropdown-header';
-            header.textContent = 'STATUS';
-            statusDropdownContainer.appendChild(header);
-            
-            // Create options container
-            const optionsContainer = document.createElement('div');
-            optionsContainer.className = 'status-dropdown-options';
-            
-            // Get current status
-            const currentStatus = (clickedNode.textContent && clickedNode.textContent.trim()) || "Todo";
-            
-            // Add options to the dropdown
-            statusOptions.forEach(option => {
-              const item = document.createElement('div');
-              item.className = `status-option ${option.value === currentStatus ? 'selected' : ''}`;
-              
-              // Create tag-like appearance for the option
-              const tag = document.createElement('div');
-              tag.className = 'status-tag';
-              tag.textContent = option.value;
-              tag.style.backgroundColor = option.backgroundColor;
-              tag.style.color = "black";
-              tag.setAttribute('data-value', option.value);
-              
-              item.appendChild(tag);
-              
-              // Add click handler to each option
-              item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                
-                // Update cell content with new status
-                const { tr } = state;
-                const cellPos = $pos.before($pos.depth);
-                const cellSize = clickedNode.nodeSize;
-                
-                // Create paragraph with status text
-                const paragraph = state.schema.nodes.paragraph.create(
-                  null,
-                  state.schema.text(option.value)
-                );
-                
-                // Replace cell content
-                tr.replaceWith(
-                  cellPos + 1,  // +1 to get inside the cell
-                  cellPos + cellSize - 1, // -1 to preserve closing tag
-                  paragraph
-                );
-                
-                view.dispatch(tr);
-                
-                // Remove dropdown
-                if (statusDropdownContainer.parentNode) {
-                  statusDropdownContainer.parentNode.removeChild(statusDropdownContainer);
-                  document.removeEventListener('click', handleOutsideClick);
-                }
-              });
-              
-              optionsContainer.appendChild(item);
-            });
-            
-            statusDropdownContainer.appendChild(optionsContainer);
-            
-            // Position the dropdown near the cell
-            const cellRect = domCell.getBoundingClientRect();
-            const editorRect = view.dom.getBoundingClientRect();
-            
-            statusDropdownContainer.style.position = 'absolute';
-            statusDropdownContainer.style.left = `${cellRect.left - editorRect.left}px`;
-            statusDropdownContainer.style.top = `${cellRect.bottom - editorRect.top + 5}px`;
-            statusDropdownContainer.style.zIndex = '9999';
-            
-            // Add to editor DOM
-            view.dom.parentNode.appendChild(statusDropdownContainer);
-            
-            // Handle outside clicks
-            const handleOutsideClick = (e) => {
-              if (!statusDropdownContainer.contains(e.target) && e.target !== domCell) {
-                if (statusDropdownContainer.parentNode) {
-                  statusDropdownContainer.parentNode.removeChild(statusDropdownContainer);
-                  document.removeEventListener('click', handleOutsideClick);
+                    depth--;
+                  }
+                  
+                  if (!cellPos) {
+                    console.error("Could not find table cell position");
+                    return;
+                  }
+                  
+                  // Create a transaction
+                  const tr = state.tr;
+                  
+                  // Get cell node
+                  const cellNode = state.doc.nodeAt(cellPos);
+                  if (!cellNode) {
+                    console.error("Could not find cell node");
+                    return;
+                  }
+                  
+                  // Create a new text node with selected status
+                  const textNode = state.schema.text(selectedStatus);
+                  
+                  // Create a paragraph to hold the text
+                  const paragraph = state.schema.nodes.paragraph.create(null, textNode);
+                  
+                  // Directly replace all the content of the cell with our new content
+                  const newCell = state.schema.nodes.tableCell.create(
+                    cellNode.attrs,
+                    paragraph
+                  );
+                  
+                  // Replace the entire cell to ensure clean replacement
+                  tr.replaceWith(cellPos, cellPos + cellNode.nodeSize, newCell);
+                  
+                  // Dispatch the transaction
+                  view.dispatch(tr);
+                  
+                  // Also update the DOM directly for immediate feedback
+                  // First get a reference to the cell DOM node again
+                  const cellDOM = cell;
+                  if (cellDOM) {
+                    // Create a div to hold the content
+                    const div = document.createElement('div');
+                    
+                    // Create a paragraph to match ProseMirror's structure
+                    const p = document.createElement('p');
+                    p.textContent = selectedStatus;
+                    
+                    // First clear the cell completely
+                    while (cellDOM.firstChild) {
+                      cellDOM.removeChild(cellDOM.firstChild);
+                    }
+                    
+                    // Add the new structure
+                    div.appendChild(p);
+                    cellDOM.appendChild(div);
+                    
+                    // Visual feedback
+                    cellDOM.style.transition = 'background-color 0.2s ease';
+                    cellDOM.style.backgroundColor = 'rgba(35, 131, 226, 0.1)';
+                    setTimeout(() => {
+                      cellDOM.style.backgroundColor = '';
+                    }, 300);
+                  }
+                } catch (error) {
+                  console.error("Error updating status:", error);
                 }
               }
-            };
+            );
             
-            // Add listener with delay to avoid current click
-            setTimeout(() => {
-              document.addEventListener('click', handleOutsideClick);
-            }, 100);
-            
+            // Stop event propagation
+            event.stopPropagation();
+            event.preventDefault();
             return true;
           } catch (error) {
             console.error('Error in status dropdown click handler:', error);
@@ -750,7 +830,14 @@ const DueDatePicker = Extension.create({
         
         handleClick(view, pos, event) {
           try {
-            console.log("DueDatePicker click handler called", { pos });
+            // Check if this is a due date cell by DOM class first (most reliable)
+            const target = event.target;
+            const cell = target.closest('td');
+            if (!cell || !cell.classList.contains('due-date-cell')) {
+              return false;
+            }
+            
+            console.log("DueDatePicker click handler called (confirmed due-date cell)", { pos });
             
             // Find the clicked node
             const { state } = view;
@@ -759,285 +846,540 @@ const DueDatePicker = Extension.create({
             // If not in a table cell, return
             if (!clickedNode) return false;
             
-            // Get position info
-            const $pos = state.doc.resolve(pos);
-            
-            // Check if we're in a table cell
-            const depthToCell = $pos.depth;
-            const cell = depthToCell > 0 ? $pos.node(depthToCell) : null;
-            
-            if (!cell || cell.type.name !== 'tableCell') return false;
-            
-            // Find parent table
-            let isInTable = false;
-            let tablePos = 0;
-            let depth = $pos.depth;
-            
-            while (depth > 0 && !isInTable) {
-              const node = $pos.node(depth);
-              if (node.type.name === 'table') {
-                isInTable = true;
-                tablePos = $pos.before(depth);
-                break;
-              }
-              depth--;
-            }
-            
-            if (!isInTable) return false;
-            
-            // Find cell position in row
-            const row = $pos.node($pos.depth - 1);
-            const table = $pos.node($pos.depth - 2);
-            
-            if (!row || !table || row.type.name !== 'tableRow') return false;
-            
-            // Get cell index
-            const cellPos = $pos.before($pos.depth);
-            
-            let cellIndex = -1;
-            let rowPos = $pos.before($pos.depth - 1);
-            let currentPos = rowPos + 1; // Skip the row start tag
-            
-            row.forEach((cell, offset) => {
-              if (currentPos === cellPos) {
-                cellIndex = offset;
-              }
-              currentPos += cell.nodeSize;
-            });
-            
-            // Check if this is a due date column (3rd column, index 2)
-            if (cellIndex !== 2) return false;
-            
-            console.log("Due date cell clicked, showing calendar");
-            
-            // Get the DOM node for the cell
-            const domCell = view.nodeDOM(cellPos);
-            if (!domCell) return false;
-            
-            // Create date picker dropdown
-            const calendarContainer = document.createElement('div');
-            calendarContainer.className = 'calendar-dropdown-fixed';
-            
-            // Create header
-            const header = document.createElement('div');
-            header.className = 'calendar-header';
-            header.textContent = 'SELECT DUE DATE';
-            calendarContainer.appendChild(header);
-            
-            // Get current date
-            const currentDateText = clickedNode.textContent ? clickedNode.textContent.trim() : '';
-            const currentDate = parseDate(currentDateText) || new Date();
-            const formattedDate = formatDate(currentDate);
-            
-            // Create a mini calendar
-            const calendarWrapper = document.createElement('div');
-            calendarWrapper.className = 'calendar-container';
-            
-            // Create month/year navigation
-            const monthYearNav = document.createElement('div');
-            monthYearNav.className = 'calendar-month-year';
-            
-            const prevButton = document.createElement('button');
-            prevButton.className = 'calendar-nav-button';
-            prevButton.innerHTML = '&lt;';
-            prevButton.addEventListener('click', (e) => {
-              e.stopPropagation();
-              // Implementation for previous month
-              // ...
-            });
-            
-            const monthYearDisplay = document.createElement('span');
-            monthYearDisplay.textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${currentDate.getFullYear()}`;
-            
-            const nextButton = document.createElement('button');
-            nextButton.className = 'calendar-nav-button';
-            nextButton.innerHTML = '&gt;';
-            nextButton.addEventListener('click', (e) => {
-              e.stopPropagation();
-              // Implementation for next month
-              // ...
-            });
-            
-            monthYearNav.appendChild(prevButton);
-            monthYearNav.appendChild(monthYearDisplay);
-            monthYearNav.appendChild(nextButton);
-            calendarWrapper.appendChild(monthYearNav);
-            
-            // Create weekday headers
-            const weekdaysRow = document.createElement('div');
-            weekdaysRow.className = 'calendar-weekdays';
-            ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].forEach(day => {
-              const dayCell = document.createElement('div');
-              dayCell.className = 'weekday-cell';
-              dayCell.textContent = day;
-              weekdaysRow.appendChild(dayCell);
-            });
-            calendarWrapper.appendChild(weekdaysRow);
-            
-            // Create calendar day grid
-            const daysGrid = document.createElement('div');
-            daysGrid.className = 'calendar-days';
-            
-            // Just a simplified implementation to show something
-            const today = new Date();
-            for (let i = 1; i <= 31; i++) {
-              const dayCell = document.createElement('div');
-              dayCell.className = 'calendar-day';
-              if (i === today.getDate() && 
-                  currentDate.getMonth() === today.getMonth() && 
-                  currentDate.getFullYear() === today.getFullYear()) {
-                dayCell.classList.add('today');
-              }
-              
-              if (i === currentDate.getDate()) {
-                dayCell.classList.add('selected');
-              }
-              
-              dayCell.textContent = i;
-              
-              // Day click handler
-              dayCell.addEventListener('click', (e) => {
-                e.stopPropagation();
-                
-                // Create a new date
-                const selectedDate = new Date(currentDate);
-                selectedDate.setDate(i);
-                
-                // Update cell content with formatted date
-                const { tr } = state;
-                const cellPos = $pos.before($pos.depth);
-                const cellSize = clickedNode.nodeSize;
-                
-                // Create paragraph with date text
-                const paragraph = state.schema.nodes.paragraph.create(
-                  null, 
-                  state.schema.text(formatDate(selectedDate))
-                );
-                
-                // Replace cell content
-                tr.replaceWith(
-                  cellPos + 1,  // +1 to get inside the cell
-                  cellPos + cellSize - 1, // -1 to preserve closing tag
-                  paragraph
-                );
-                
-                view.dispatch(tr);
-                
-                // Remove dropdown
-                if (calendarContainer.parentNode) {
-                  calendarContainer.parentNode.removeChild(calendarContainer);
-                  document.removeEventListener('click', handleOutsideClick);
+            // Clean up any existing calendar
+            try {
+              document.querySelectorAll('.direct-calendar-container, .direct-dropdown-container').forEach(el => {
+                if (document.body.contains(el)) {
+                  document.body.removeChild(el);
                 }
               });
-              
-              daysGrid.appendChild(dayCell);
+            } catch (e) {
+              console.log("No existing calendar to clean up");
             }
             
-            calendarWrapper.appendChild(daysGrid);
+            // Extract date from text content
+            const dateText = clickedNode.textContent ? clickedNode.textContent.trim() : '';
+            const currentDate = parseDate(dateText) || new Date();
             
-            // Add action buttons
-            const actionBar = document.createElement('div');
-            actionBar.className = 'calendar-action-bar';
+            console.log("Current date:", formatDate(currentDate));
             
-            const clearButton = document.createElement('button');
-            clearButton.className = 'calendar-action-button clear';
-            clearButton.textContent = 'Clear';
-            clearButton.addEventListener('click', (e) => {
-              e.stopPropagation();
-              
-              // Update cell content to empty
-              const { tr } = state;
-              const cellPos = $pos.before($pos.depth);
-              const cellSize = clickedNode.nodeSize;
-              
-              // Create empty paragraph
-              const paragraph = state.schema.nodes.paragraph.create();
-              
-              // Replace cell content
-              tr.replaceWith(
-                cellPos + 1,  // +1 to get inside the cell
-                cellPos + cellSize - 1, // -1 to preserve closing tag
-                paragraph
-              );
-              
-              view.dispatch(tr);
-              
-              // Remove dropdown
-              if (calendarContainer.parentNode) {
-                calendarContainer.parentNode.removeChild(calendarContainer);
-                document.removeEventListener('click', handleOutsideClick);
-              }
-            });
+            // Get the cell position for calendar placement
+            const cellRect = cell.getBoundingClientRect();
             
-            const todayButton = document.createElement('button');
-            todayButton.className = 'calendar-action-button';
-            todayButton.textContent = 'Today';
-            todayButton.addEventListener('click', (e) => {
-              e.stopPropagation();
-              
-              // Update cell content with today's date
-              const { tr } = state;
-              const cellPos = $pos.before($pos.depth);
-              const cellSize = clickedNode.nodeSize;
-              
-              // Create paragraph with today's date
-              const paragraph = state.schema.nodes.paragraph.create(
-                null,
-                state.schema.text(formatDate(new Date()))
-              );
-              
-              // Replace cell content
-              tr.replaceWith(
-                cellPos + 1,  // +1 to get inside the cell
-                cellPos + cellSize - 1, // -1 to preserve closing tag
-                paragraph
-              );
-              
-              view.dispatch(tr);
-              
-              // Remove dropdown
-              if (calendarContainer.parentNode) {
-                calendarContainer.parentNode.removeChild(calendarContainer);
-                document.removeEventListener('click', handleOutsideClick);
-              }
-            });
+            // Add data attribute to the cell for scroll tracking
+            cell.dataset.tableCellPos = pos;
             
-            actionBar.appendChild(clearButton);
-            actionBar.appendChild(todayButton);
-            calendarWrapper.appendChild(actionBar);
+            // Create a container with explicit styling - fixed position
+            const container = document.createElement('div');
+            container.className = 'direct-calendar-container';
+            container.id = 'calendar-' + Date.now();
+            container.style.cssText = `
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+              border-radius: 6px;
+              box-shadow: 0 0 0 1px #5555ff, 0 2px 8px rgba(15, 15, 15, 0.1), 0 4px 12px rgba(15, 15, 15, 0.2);
+              background: white;
+              padding: 12px;
+              width: 280px;
+              position: fixed !important;
+              top: ${cellRect.bottom - 10}px;
+              left: ${cellRect.left}px;
+              z-index: 2147483647 !important;
+              transform-origin: top left;
+              opacity: 0;
+              transform: scale(0.95);
+              transition: opacity 0.2s ease, transform 0.2s ease;
+            `;
             
-            calendarContainer.appendChild(calendarWrapper);
+            // Add directly to document body
+            document.body.appendChild(container);
+            console.log("Calendar added to document body", container);
             
-            // Position the dropdown
-            const cellRect = domCell.getBoundingClientRect();
-            const editorRect = view.dom.getBoundingClientRect();
-            
-            calendarContainer.style.position = 'absolute';
-            calendarContainer.style.left = `${cellRect.left - editorRect.left}px`;
-            calendarContainer.style.top = `${cellRect.bottom - editorRect.top + 5}px`;
-            calendarContainer.style.zIndex = '9999';
-            
-            // Add to editor DOM
-            view.dom.parentNode.appendChild(calendarContainer);
-            
-            // Handle outside clicks
-            const handleOutsideClick = (e) => {
-              if (!calendarContainer.contains(e.target) && e.target !== domCell) {
-                if (calendarContainer.parentNode) {
-                  calendarContainer.parentNode.removeChild(calendarContainer);
-                  document.removeEventListener('click', handleOutsideClick);
+            // Create a simple HTML calendar
+            const calendarHTML = `
+              <style>
+                @keyframes dropdownFadeIn {
+                  from {
+                    opacity: 0;
+                    transform: translateY(-8px) scale(0.98);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                  }
                 }
+                
+                .calendar-header {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  margin-bottom: 12px;
+                }
+                
+                .calendar-month-year {
+                  font-size: 14px;
+                  font-weight: 600;
+                  color: rgb(55, 53, 47);
+                  flex: 1;
+                  text-align: center;
+                }
+                
+                .calendar-nav-btn {
+                  background: transparent;
+                  border: none;
+                  cursor: pointer;
+                  color: rgb(55, 53, 47);
+                  border-radius: 3px;
+                  width: 28px;
+                  height: 28px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                }
+                
+                .calendar-nav-btn:hover {
+                  background-color: rgba(55, 53, 47, 0.08);
+                }
+                
+                .calendar-day:hover {
+                  background-color: rgba(55, 53, 47, 0.08) !important;
+                }
+                
+                .calendar-day.selected {
+                  background-color: rgb(35, 131, 226) !important;
+                  color: white !important;
+                }
+                
+                .calendar-day.today:not(.selected) {
+                  border: 1px solid rgb(35, 131, 226) !important;
+                }
+                
+                .calendar-day.disabled {
+                  opacity: 0.4 !important;
+                  cursor: default !important;
+                  pointer-events: none !important;
+                  text-decoration: line-through !important;
+                }
+                
+                .calendar-btn {
+                  border: none !important;
+                  background-color: transparent !important;
+                  cursor: pointer !important;
+                  border-radius: 3px !important;
+                  font-size: 14px !important;
+                  padding: 6px 8px !important;
+                  color: rgb(55, 53, 47) !important;
+                  transition: background 0.1s ease-in !important;
+                }
+                
+                .calendar-btn:hover {
+                  background-color: rgba(55, 53, 47, 0.08) !important;
+                }
+                
+                .calendar-btn.primary {
+                  background-color: rgb(35, 131, 226) !important;
+                  color: white !important;
+                }
+                
+                .calendar-btn.primary:hover {
+                  background-color: rgba(35, 131, 226, 0.8) !important;
+                }
+              </style>
+
+              <div class="calendar-header">
+                <button id="prev-month-btn" class="calendar-nav-btn">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 4L6 8L10 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <div id="month-year-display" class="calendar-month-year">Month Year</div>
+                <button id="next-month-btn" class="calendar-nav-btn">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div style="
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                gap: 2px;
+                margin-bottom: 8px;
+                font-size: 12px;
+                color: rgba(55, 53, 47, 0.6);
+                text-align: center;
+                font-weight: 500;
+              ">
+                <div>Su</div>
+                <div>Mo</div>
+                <div>Tu</div>
+                <div>We</div>
+                <div>Th</div>
+                <div>Fr</div>
+                <div>Sa</div>
+              </div>
+              
+              <div id="calendar-days-grid" style="
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                gap: 2px;
+                margin-bottom: 8px;
+              "></div>
+              
+              <div style="
+                display: flex;
+                justify-content: center;
+                padding-top: 4px;
+                border-top: 1px solid rgba(55, 53, 47, 0.1);
+              ">
+                <button id="today-date-btn" class="calendar-btn primary">Today</button>
+              </div>
+            `;
+            
+            container.innerHTML = calendarHTML;
+            
+            // Set initial opacity after a brief delay for animation
+            setTimeout(() => {
+              container.style.opacity = '1';
+              container.style.transform = 'scale(1)';
+            }, 10);
+
+            // Store data for event handlers
+            const calendarData = { view, pos, state };
+
+            // Initialize month and year variables that can be updated
+            let currentYear = currentDate.getFullYear();
+            let currentMonth = currentDate.getMonth();
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+            // Update month year display
+            const monthYearDisplay = container.querySelector('#month-year-display');
+            if (monthYearDisplay) {
+              monthYearDisplay.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+            }
+
+            // Function to rebuild the calendar for a specific month/year
+            const buildCalendarDays = () => {
+              const daysGrid = container.querySelector('#calendar-days-grid');
+              if (!daysGrid) return;
+              
+              // Clear existing days
+              daysGrid.innerHTML = '';
+              
+              // Get first day of month and number of days
+              const firstDay = new Date(currentYear, currentMonth, 1);
+              const lastDay = new Date(currentYear, currentMonth + 1, 0);
+              const numDays = lastDay.getDate();
+              const startOffset = firstDay.getDay(); // 0 = Sunday
+              
+              // Current date for comparison
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              // Add empty cells for days before the 1st
+              for (let i = 0; i < startOffset; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.style.cssText = `
+                  width: 100%;
+                  height: 28px;
+                `;
+                daysGrid.appendChild(emptyCell);
+              }
+              
+              // Add cells for each day of the month
+              for (let day = 1; day <= numDays; day++) {
+                const dayCell = document.createElement('div');
+                const currentDate = new Date(currentYear, currentMonth, day);
+                currentDate.setHours(0, 0, 0, 0);
+                
+                const isToday = today.getTime() === currentDate.getTime();
+                const isPast = currentDate.getTime() < today.getTime();
+                const isSelected = currentDate.getDate() === day && currentDate.getMonth() === currentMonth && currentDate.getFullYear() === currentYear;
+                
+                dayCell.textContent = day;
+                dayCell.className = `calendar-day${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}${isPast ? ' disabled' : ''}`;
+                dayCell.style.cssText = `
+                  width: 100%;
+                  height: 28px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  cursor: ${isPast ? 'default' : 'pointer'};
+                  border-radius: 3px;
+                  font-size: 14px;
+                  color: ${isSelected ? 'white' : 'rgb(55, 53, 47)'};
+                  user-select: none;
+                  ${isPast ? 'opacity: 0.4;' : ''}
+                `;
+                
+                // Add click handler only if not past
+                if (!isPast) {
+                  dayCell.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    
+                    // Add visual feedback on click
+                    if (!isSelected) {
+                      dayCell.style.backgroundColor = 'rgba(35, 131, 226, 0.8)';
+                      dayCell.style.color = 'white';
+                    }
+                    
+                    // Create a new date with selected day
+                    const selectedDate = new Date(currentYear, currentMonth, day);
+                    const formattedDate = formatDate(selectedDate);
+                    console.log("Day selected:", formattedDate);
+                    
+                    setTimeout(() => {
+                      try {
+                        // Get the resolved position
+                        const $pos = state.doc.resolve(pos);
+                        
+                        // Find parent table cell node position
+                        let depth = $pos.depth;
+                        let cellPos = null;
+                        
+                        // Walk up the node hierarchy to find the table cell
+                        while (depth > 0) {
+                          const node = $pos.node(depth);
+                          if (node.type.name === 'tableCell') {
+                            cellPos = $pos.before(depth);
+                            break;
+                          }
+                          depth--;
+                        }
+                        
+                        if (!cellPos) {
+                          console.error("Could not find table cell position");
+                          return;
+                        }
+                        
+                        // Get the DOM node for the cell for direct manipulation
+                        let domCell = null;
+                        try {
+                          domCell = view.nodeDOM(cellPos);
+                        } catch (e) {
+                          console.log("Could not get DOM node for cell:", e);
+                        }
+                        
+                        // Create a transaction
+                        const tr = state.tr;
+                        
+                        // Get cell node
+                        const cellNode = state.doc.nodeAt(cellPos);
+                        if (!cellNode) {
+                          console.error("Could not find cell node");
+                          return;
+                        }
+                        
+                        // Create a new text node with selected date
+                        const textNode = state.schema.text(formattedDate);
+                        
+                        // Create a paragraph to hold the text
+                        const paragraph = state.schema.nodes.paragraph.create(null, textNode);
+                        
+                        // Directly replace all the content of the cell with our new content
+                        const newCell = state.schema.nodes.tableCell.create(
+                          cellNode.attrs,
+                          paragraph
+                        );
+                        
+                        // Replace the entire cell to ensure clean replacement
+                        tr.replaceWith(cellPos, cellPos + cellNode.nodeSize, newCell);
+                        
+                        // Dispatch the transaction
+                view.dispatch(tr);
+                
+                        // DOM update is unreliable here, so rely on ProseMirror's rendering instead
+                        console.log("Date updated via transaction");
+                      } catch (error) {
+                        console.error("Error updating date:", error);
+                      }
+                      
+                      // Add fade out animation
+                      container.style.opacity = '0';
+                      container.style.transform = 'scale(0.95)';
+                      container.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                      
+                      setTimeout(() => {
+                        // Remove calendar
+                        if (document.body.contains(container)) {
+                          document.body.removeChild(container);
+                        }
+                      }, 200);
+                    }, 150);
+                  });
+                }
+                
+                daysGrid.appendChild(dayCell);
               }
             };
-            
-            // Add listener with delay to avoid current click
+
+            // Build the initial calendar days
+            buildCalendarDays();
+
+            // Set up previous month button
+            const prevMonthBtn = container.querySelector('#prev-month-btn');
+            if (prevMonthBtn) {
+              prevMonthBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Change month and handle year change if needed
+                currentMonth--;
+                if (currentMonth < 0) {
+                  currentMonth = 11;
+                  currentYear--;
+                }
+                
+                // Update month/year display
+                if (monthYearDisplay) {
+                  monthYearDisplay.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+                }
+                
+                // Rebuild the calendar
+                buildCalendarDays();
+              });
+            }
+
+            // Set up next month button
+            const nextMonthBtn = container.querySelector('#next-month-btn');
+            if (nextMonthBtn) {
+              nextMonthBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Change month and handle year change if needed
+                currentMonth++;
+                if (currentMonth > 11) {
+                  currentMonth = 0;
+                  currentYear++;
+                }
+                
+                // Update month/year display
+                if (monthYearDisplay) {
+                  monthYearDisplay.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+                }
+                
+                // Rebuild the calendar
+                buildCalendarDays();
+              });
+            }
+
+            // Set up Today button
+            const todayBtn = container.querySelector('#today-date-btn');
+            if (todayBtn) {
+              todayBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Add visual feedback
+                todayBtn.style.backgroundColor = 'rgba(35, 131, 226, 0.8)';
+                
+                setTimeout(() => {
+                  // Get today's date formatted
+                  const today = new Date();
+                  const formattedDate = formatDate(today);
+                  console.log("Today button clicked:", formattedDate);
+                  
+                  try {
+                    // Get the resolved position
+                    const $pos = state.doc.resolve(pos);
+                    
+                    // Find parent table cell node position
+                    let depth = $pos.depth;
+                    let cellPos = null;
+                    
+                    // Walk up the node hierarchy to find the table cell
+                    while (depth > 0) {
+                      const node = $pos.node(depth);
+                      if (node.type.name === 'tableCell') {
+                        cellPos = $pos.before(depth);
+                        break;
+                      }
+                      depth--;
+                    }
+                    
+                    if (!cellPos) {
+                      console.error("Could not find table cell position");
+                      return;
+                    }
+                    
+                    // Create a transaction
+                    const tr = state.tr;
+                    
+                    // Get cell node
+                    const cellNode = state.doc.nodeAt(cellPos);
+                    if (!cellNode) {
+                      console.error("Could not find cell node");
+                      return;
+                    }
+                    
+                    // Create a new text node with today's date
+                    const textNode = state.schema.text(formattedDate);
+                    
+                    // Create a paragraph to hold the text
+                    const paragraph = state.schema.nodes.paragraph.create(null, textNode);
+                    
+                    // Directly replace all the content of the cell with our new content
+                    const newCell = state.schema.nodes.tableCell.create(
+                      cellNode.attrs,
+                      paragraph
+                    );
+                    
+                    // Replace the entire cell to ensure clean replacement
+                    tr.replaceWith(cellPos, cellPos + cellNode.nodeSize, newCell);
+                    
+                    // Dispatch the transaction
+                    view.dispatch(tr);
+                    
+                    // DOM update is unreliable here, so rely on ProseMirror's rendering instead
+                    console.log("Date updated via transaction");
+                  } catch (error) {
+                    console.error("Error updating date:", error);
+                  }
+                  
+                  // Add fade out animation
+                  container.style.opacity = '0';
+                  container.style.transform = 'scale(0.95)';
+                  container.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                  
+                  setTimeout(() => {
+                    // Remove calendar
+                    if (document.body.contains(container)) {
+                      document.body.removeChild(container);
+                    }
+                  }, 200);
+                }, 150);
+              });
+            }
+
+            // Function to handle outside clicks and close the calendar
+            const handleOutsideClick = (e) => {
+              // If the click is outside the calendar container
+              if (!container.contains(e.target)) {
+                // Remove the event listener first to prevent multiple calls
+                document.removeEventListener('click', handleOutsideClick);
+                
+                // Add fade out animation
+                container.style.opacity = '0';
+                container.style.transform = 'scale(0.95)';
+                container.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                
+                setTimeout(() => {
+                  // Only remove if it still exists
+                  if (document.body.contains(container)) {
+                    document.body.removeChild(container);
+                  }
+                }, 200);
+              }
+            };
+
+            // Add listener with delay to avoid immediate triggering
             setTimeout(() => {
               document.addEventListener('click', handleOutsideClick);
             }, 100);
             
+            // Stop event propagation
+            event.stopPropagation();
+            event.preventDefault();
             return true;
           } catch (error) {
-            console.error('Error in date picker click handler:', error);
+            console.error('Error handling due date picker:', error);
             return false;
           }
         },
@@ -1216,6 +1558,253 @@ const parseDate = (dateString) => {
   return null;
 };
 
+// Create a direct DOM dropdown function to bypass React rendering
+const createDirectDomDropdown = (type, options, position, currentValue, onSelect) => {
+  console.log(`Creating ${type} dropdown at position:`, position);
+  
+  // Clean up ALL existing dropdowns first to prevent multiple handlers showing dropdowns
+  try {
+    document.querySelectorAll('.direct-dropdown-container, .direct-calendar-container').forEach(el => {
+      if (document.body.contains(el)) {
+        document.body.removeChild(el);
+      }
+    });
+    document.querySelectorAll('div[id^="marker-"]').forEach(el => {
+      if (document.body.contains(el)) {
+        document.body.removeChild(el);
+      }
+    });
+  } catch (e) {
+    console.log("Error cleaning up existing dropdowns:", e);
+  }
+
+  // Assign different z-index based on dropdown type
+  let zIndex = 2147483647; // Max z-index for all dropdowns
+  let borderColor = '#dddddd'; // Default border color
+
+  // Switch statement to set z-index and border color based on dropdown type
+  switch(type) {
+    case 'status':
+      zIndex = 2147483647; // Highest
+      borderColor = '#ff5555'; // Red
+      break;
+    case 'priority':
+      zIndex = 2147483646; // Second highest
+      borderColor = '#55ff55'; // Green
+      break;
+    case 'calendar':
+      zIndex = 2147483645; // Third highest
+      borderColor = '#5555ff'; // Blue
+      break;
+    default:
+      // Use defaults
+      break;
+  }
+  
+  // Create a container div first with explicit styling
+  const container = document.createElement('div');
+  container.id = `${type}-dropdown-${Date.now()}`;
+  container.className = `direct-dropdown-container ${type}-dropdown-fixed`;
+  
+  // Position directly below the cell's bottom edge with fixed position
+  const topPosition = position.top + 1; 
+  const leftPosition = position.left;
+  
+  // Direct style assignment with !important flags to override any other styles
+  container.style.cssText = `
+    position: fixed !important;
+    z-index: ${zIndex} !important;
+    top: ${topPosition}px !important;
+    left: ${leftPosition}px !important;
+    width: 180px !important;
+    background-color: white !important;
+    border-radius: 5px !important;
+    box-shadow: 0 0 0 1px ${borderColor}, 0 5px 10px rgba(15, 15, 15, 0.1) !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    transform-origin: top center !important;
+    animation: dropdownFadeIn 0.1s ease-out forwards !important;
+    overflow: hidden !important;
+  `;
+
+  // Create a simple HTML string for the dropdown
+  let htmlContent = `
+    <style>
+      @keyframes dropdownFadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-8px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      
+      .direct-dropdown-option {
+        transition: background-color 0.1s ease;
+      }
+      
+      .direct-dropdown-option:hover {
+        background-color: rgba(55, 53, 47, 0.08) !important;
+      }
+      
+      .direct-dropdown-option.selected {
+        background-color: rgba(55, 53, 47, 0.1) !important;
+      }
+    </style>
+    <div class="direct-dropdown-options" style="
+      max-height: 250px !important;
+      overflow-y: auto !important;
+      padding: 4px !important;
+    ">
+  `;
+
+  // Add options to the HTML string
+  options.forEach(option => {
+    const isSelected = option.value === currentValue;
+    const value = option.value || option;
+    let optionHtml = `
+      <div class="direct-dropdown-option ${isSelected ? 'selected' : ''}" data-value="${value}" style="
+        padding: 6px 8px !important;
+        cursor: pointer !important;
+        border-radius: 3px !important;
+        margin: 2px 4px !important;
+        display: flex !important;
+        align-items: center !important;
+        font-size: 14px !important;
+        color: rgb(55, 53, 47) !important;
+        transition: background 0.1s ease-in !important;
+        user-select: none !important;
+      ">
+    `;
+    
+    // Add color tag if relevant
+    if (option.backgroundColor) {
+      optionHtml += `
+        <span style="
+          display: inline-block !important;
+          width: 12px !important;
+          height: 12px !important;
+          border-radius: 3px !important;
+          margin-right: 8px !important;
+          background-color: ${option.backgroundColor} !important;
+          flex-shrink: 0 !important;
+        "></span>
+      `;
+    }
+    
+    // Add text
+    optionHtml += `
+        <span style="
+          font-size: 14px !important;
+          color: rgb(55, 53, 47) !important;
+          font-weight: ${isSelected ? '500' : 'normal'} !important;
+        ">${value}</span>
+        
+        ${isSelected ? `
+          <span style="
+            margin-left: auto !important;
+            width: 16px !important;
+            height: 16px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          ">
+            <svg viewBox="0 0 14 14" style="width: 12px; height: 12px; display: block; fill: rgba(55, 53, 47, 0.7); flex-shrink: 0; backface-visibility: hidden;">
+              <polygon points="5.5 11.9993304 14 3.49933039 12.5 2 5.5 8.99933039 1.5 4.9968652 0 6.49933039"></polygon>
+            </svg>
+          </span>
+        ` : ''}
+      </div>
+    `;
+    
+    htmlContent += optionHtml;
+  });
+  
+  // Close the options container
+  htmlContent += `</div>`;
+
+  // Set the HTML content
+  container.innerHTML = htmlContent;
+
+  // Add directly to document body
+  document.body.appendChild(container);
+  console.log(`${type} dropdown appended to document body:`, container);
+  
+  // Update container cleanup to remove all traces
+  const cleanupDropdown = () => {
+    // Remove the dropdown
+    if (document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+    
+    // Remove any markers
+    document.querySelectorAll('div[id^="marker-"]').forEach(el => {
+      if (document.body.contains(el)) {
+        document.body.removeChild(el);
+      }
+    });
+  };
+  
+  // Add click handlers to options after the container is in the DOM
+  const optionElements = container.querySelectorAll('.direct-dropdown-option');
+  console.log(`Found ${optionElements.length} options in dropdown`);
+  
+  optionElements.forEach(option => {
+    option.addEventListener('click', (e) => {
+      e.stopPropagation();
+      
+      // Add visual feedback on click
+      option.style.backgroundColor = 'rgba(55, 53, 47, 0.16)';
+      
+      const value = option.getAttribute('data-value');
+      console.log(`${type} option selected:`, value);
+      
+      // Call the onSelect callback with a slight delay for animation
+      setTimeout(() => {
+        onSelect(value);
+        
+        // Clean up
+        container.style.opacity = '0';
+        container.style.transform = 'translateY(-8px) scale(0.98)';
+        container.style.transition = 'opacity 0.1s ease-out, transform 0.1s ease-out';
+        
+        // Clean up after animation
+        setTimeout(() => {
+          cleanupDropdown();
+        }, 100);
+      }, 150);
+    });
+  });
+  
+  // Add outside click handler to close dropdown
+  const handleOutsideClick = (e) => {
+    if (!container.contains(e.target)) {
+      console.log(`Outside click detected, removing ${type} dropdown`);
+      
+      // Add fade out animation
+      container.style.opacity = '0';
+      container.style.transform = 'translateY(-8px) scale(0.98)';
+      container.style.transition = 'opacity 0.1s ease-out, transform 0.1s ease-out';
+      
+      setTimeout(() => {
+        cleanupDropdown();
+        document.removeEventListener('click', handleOutsideClick);
+      }, 100);
+    }
+  };
+  
+  // Add listener with delay to avoid immediate triggering
+  setTimeout(() => {
+    document.addEventListener('click', handleOutsideClick);
+  }, 100);
+  
+  return container;
+};
+
 export default function Editor({
   content = '',
   onUpdate = () => {},
@@ -1338,9 +1927,10 @@ export default function Editor({
       TableHeader,
       Underline,
       Strike,
-      PriorityDropdown,
+      // Change the order to prioritize cell-specific handlers
       StatusDropdown,
       DueDatePicker,
+      PriorityDropdown,
       // Add the custom extensions here
       ...customExtensions,
     ],
@@ -1463,16 +2053,35 @@ export default function Editor({
       handleDOMEvents: {
         click: (view, event) => {
           try {
-            // Check if clicked on .priority-tag-wrapper
-            let targetElem = event.target;
+            // Find out if we clicked on a table cell
+            const target = event.target;
+            const cell = target.closest('td');
             
-            // Check if it's the tag or inside a table cell
-            const isTagClick = targetElem.classList && targetElem.classList.contains('priority-tag-wrapper');
-            const cell = targetElem.closest('td');
+            if (!cell) return false; // Not clicking in a table
             
-            // ... rest of the original function ...
+            // Log which classes the cell has for debugging
+            console.log("Cell classes:", cell.className);
+            
+            // Check cell classnames to determine type - implement exclusive handling
+            if (cell.classList.contains('status-cell')) {
+              console.log("Detected click on STATUS cell, letting StatusDropdown handle it");
+              // The StatusDropdown handler will take care of this
+              return false;
+            } else if (cell.classList.contains('due-date-cell')) {
+              console.log("Detected click on DUE DATE cell, letting DueDatePicker handle it");
+              // The DueDatePicker handler will take care of this
+              return false;
+            } else if (cell.classList.contains('priority-cell')) {
+              console.log("Detected click on PRIORITY cell, letting PriorityDropdown handle it");
+              // The PriorityDropdown handler will take care of this
+              return false;
+            }
+            
+            // For regular table cells, let the default handler process them
+            console.log("Regular table cell click - standard handling");
+            return false;
           } catch (error) {
-            console.error('Error handling special case:', error);
+            console.error('Error handling table cell click:', error);
             return false;
           }
         },

@@ -19,6 +19,35 @@ export default function createGoalExtension(handleOpenGoal) {
   return Extension.create({
     name: 'goalExtension',
     
+    onBeforeCreate() {
+      // Filter for goal-state-changed events at the extension level
+      const goalStateHandler = (event) => {
+        if (event.detail && event.detail.goalId) {
+          // Skip direct-created goals at the extension level
+          if (event.detail.goalId.startsWith('goal-direct-') || 
+              event.detail.goalId.startsWith('goal-new-goal-')) {
+            console.log(`Extension ignoring event for direct-created goal: ${event.detail.goalId}`);
+            event.stopPropagation(); // Stop event from triggering other handlers
+            event.stopImmediatePropagation(); // Stop other handlers on this element
+            return false;
+          }
+        }
+      };
+      
+      // Add the filter early to catch events
+      document.addEventListener('goal-state-changed', goalStateHandler, { capture: true });
+      
+      // Store reference for cleanup
+      this._goalStateFilter = goalStateHandler;
+    },
+    
+    onDestroy() {
+      // Clean up the event listener when extension is destroyed
+      if (this._goalStateFilter) {
+        document.removeEventListener('goal-state-changed', this._goalStateFilter, { capture: true });
+      }
+    },
+    
     // Add a handler for the slash command to track when elements are created
     addKeyboardShortcuts() {
       return {
@@ -336,8 +365,8 @@ export default function createGoalExtension(handleOpenGoal) {
                   
                   // Check if this is the first cell in a row (goal title column)
                   const isTitleCell = Array.from(firstCellsInRows).some(rowPos => {
-                    // The node position should be a bit after the row position we stored
-                    return Math.abs(pos - rowPos) < 10; // Approximate matching
+                    // Check if this cell is exactly at the row position we stored
+                    return pos === rowPos;
                   });
                   
                   // Skip if this cell is not in a goal template and not a title cell
@@ -348,6 +377,16 @@ export default function createGoalExtension(handleOpenGoal) {
                   if (isTitleCell) {
                     const cellContent = node.textContent.trim();
                     
+                    // Special handling for "Add new goal" cell
+                    if (cellContent && cellContent.includes('Add new goal')) {
+                      decorations.push(
+                        Decoration.node(pos, pos + node.nodeSize, {
+                          class: 'add-new-goal-cell'
+                        })
+                      );
+                      return true;
+                    }
+                    
                     // Only add button to non-empty cells that aren't headers (unless it's a header with real content)
                     if (cellContent && 
                         cellContent !== 'Goal' && 
@@ -356,20 +395,18 @@ export default function createGoalExtension(handleOpenGoal) {
                         cellContent.length > 0 && 
                         cellContent.length < 100) {
                       
-                      // Instead of trying to position at the end of a paragraph,
-                      // we'll use a node decoration to add a class to the cell
-                      // and later position the button with CSS
-                      decorations.push(
-                        Decoration.node(pos, pos + node.nodeSize, {
-                          class: 'goal-title-cell'
-                        })
-                      );
-                      
                       // Add a widget at the start of the cell to ensure consistent placement
                       decorations.push(
                         Decoration.widget(pos + 1, (view, getPos) => {
                           return createGoalButton(cellContent, handleOpenGoal, 'table');
                         }, { side: 1 }) // side: 1 means insert after
+                      );
+                      
+                      // Add the goal-title-cell class to the cell
+                      decorations.push(
+                        Decoration.node(pos, pos + node.nodeSize, {
+                          class: 'goal-title-cell'
+                        })
                       );
                     }
                   }
@@ -379,6 +416,120 @@ export default function createGoalExtension(handleOpenGoal) {
               });
               
               return DecorationSet.create(state.doc, decorations);
+            }
+          }
+        }),
+        
+        // Plugin to handle clicks on the Add new goal cell
+        new Plugin({
+          props: {
+            handleDOMEvents: {
+              click: (view, event) => {
+                // Find the nearest table cell or header to the click
+                let targetElement = event.target;
+                let foundCell = false;
+                
+                // Traverse up the DOM tree to find a table cell
+                while (targetElement && !foundCell) {
+                  if (targetElement.classList && targetElement.classList.contains('add-new-goal-cell')) {
+                    foundCell = true;
+                    break;
+                  }
+                  
+                  // Go up one level in the DOM
+                  targetElement = targetElement.parentElement;
+                  
+                  // Safety check - don't go beyond the editor
+                  if (!targetElement || targetElement === view.dom) {
+                    break;
+                  }
+                }
+                
+                // If we found an "Add new goal" cell, handle the click
+                if (foundCell) {
+                  console.log('Add new goal cell clicked - creating row directly');
+                  
+                  // Prevent event propagation immediately
+                  event.preventDefault();
+                  event.stopPropagation();
+                  
+                  try {
+                    // Find the table and the "Add new goal" row
+                    let tablePos = null;
+                    let addNewGoalRowPos = null;
+                    
+                    // Traverse up the DOM to find the table element
+                    let tableElement = targetElement;
+                    while (tableElement && tableElement.tagName !== 'TABLE') {
+                      tableElement = tableElement.parentElement;
+                    }
+                    
+                    if (!tableElement) {
+                      console.error('Could not find table element');
+                      return true;
+                    }
+                    
+                    // Now we need to find the table in the document
+                    view.state.doc.descendants((node, pos) => {
+                      if (node.type.name === 'table') {
+                        // Try to check if this table contains the Add new goal row
+                        let containsAddNewGoal = false;
+                        
+                        node.descendants((rowNode, rowRelPos) => {
+                          if (rowNode.type.name === 'tableRow' && 
+                              rowNode.firstChild && 
+                              rowNode.firstChild.textContent.includes('Add new goal')) {
+                            containsAddNewGoal = true;
+                            // Calculate absolute position
+                            addNewGoalRowPos = pos + rowRelPos;
+                            return false;
+                          }
+                          return true;
+                        });
+                        
+                        if (containsAddNewGoal) {
+                          tablePos = pos;
+                          return false; // Stop traversal once found
+                        }
+                      }
+                      return true;
+                    });
+                    
+                    if (!tablePos || !addNewGoalRowPos) {
+                      console.error('Could not find table or Add new goal row position');
+                      return true;
+                    }
+                    
+                    // Create a new row for the goal
+                    const schema = view.state.schema;
+                    const newRow = schema.nodes.tableRow.create(null, [
+                      // Title cell
+                      schema.nodes.tableCell.create(null, schema.nodes.paragraph.create(null, schema.text(`New Goal ${new Date().toLocaleDateString()}`))),
+                      // Status cell
+                      schema.nodes.tableCell.create(null, schema.nodes.paragraph.create(null, schema.text('Not Started'))),
+                      // Due Date cell - ensure non-empty content
+                      schema.nodes.tableCell.create(null, schema.nodes.paragraph.create(null, schema.text('--'))),
+                      // Priority cell
+                      schema.nodes.tableCell.create(null, schema.nodes.paragraph.create(null, schema.text('Medium'))),
+                      // Team cell - ensure non-empty content
+                      schema.nodes.tableCell.create(null, schema.nodes.paragraph.create(null, schema.text('--')))
+                    ]);
+                    
+                    // Insert the new row before the "Add new goal" row
+                    const tr = view.state.tr;
+                    tr.insert(addNewGoalRowPos, newRow);
+                    view.dispatch(tr);
+                    
+                    console.log('New goal row added directly');
+                  } catch (error) {
+                    console.error('Error creating new goal row:', error);
+                  }
+                  
+                  return true;
+                }
+                
+                return false;
+              }
             }
           }
         })
@@ -487,11 +638,48 @@ function createGoalButton(text, handleOpenGoal, context = 'heading') {
   };
   
   // Listen for custom goal state events from the editor
-  document.addEventListener('goal-state-changed', (event) => {
-    if (event.detail && event.detail.goalId === goalId) {
-      updateButtonState(event.detail.isOpen);
-    }
-  });
+  // Use a unique property on the container element to track if we've already attached a listener
+  if (!container.hasOwnProperty('_hasGoalEventListener')) {
+    // Flag to prevent multiple listeners on the same button
+    container.setAttribute('_hasGoalEventListener', 'true');
+    
+    // Create a named event handler function that we can remove later if needed
+    container._goalStateHandler = (event) => {
+      if (event.detail && event.detail.goalId === goalId) {
+        updateButtonState(event.detail.isOpen);
+      }
+    };
+    
+    // Add the event listener
+    document.addEventListener('goal-state-changed', container._goalStateHandler);
+    
+    // Add a MutationObserver to detect when the button is removed from the DOM
+    // This ensures we clean up event listeners when decorations are removed
+    setTimeout(() => {
+      if (document.contains(container)) {
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+              // Check if the container was removed from the DOM
+              if (!document.contains(container)) {
+                // Clean up event listener
+                document.removeEventListener('goal-state-changed', container._goalStateHandler);
+                // Disconnect observer
+                observer.disconnect();
+              }
+            }
+          });
+        });
+        
+        // Start observing the parent
+        if (container.parentNode) {
+          observer.observe(container.parentNode, { childList: true, subtree: true });
+          // Store reference for cleanup
+          container._observer = observer;
+        }
+      }
+    }, 100);
+  }
   
   // Track click state to prevent multiple rapid clicks
   let isProcessingClick = false;

@@ -412,31 +412,59 @@ class GoalService {
   }
   
   /**
-   * Synchronize goal data between table and document
-   * This ensures that changes in one representation are reflected in the other
-   * @param {Goal} goal The goal to synchronize
-   * @param {Object} editor The editor instance (optional)
-   * @returns {Promise<Goal>} The synchronized goal
+   * Synchronize a goal with the document and storage
+   * This is used during goal updates to keep everything in sync
+   * @param {Object} goal Goal data
+   * @param {Object} editor Editor instance
+   * @returns {Promise<Goal>} Synchronized goal
    */
-  async synchronizeGoal(goal, editor = null) {
+  async synchronizeGoal(goal, editor) {
+    console.log('Synchronizing goal with document:', goal);
+    
     if (!goal) return null;
     
+    // Check if this is a new goal created from "Add new goal" row
+    const isNewGoal = goal.id && goal.id.startsWith('goal-new-');
+    
     try {
-      console.log(`Synchronizing goal: ${goal.id}`);
+      // Create or update the goal in storage
+      let savedGoal = null;
       
-      // Update the goal in storage - this is now awaited
-      const updatedGoal = await this.updateGoal(goal.id, goal);
-      
-      // If an editor is provided, update the document representation
-      if (editor && updatedGoal) {
-        this.updateDocumentGoal(updatedGoal, editor);
+      if (isNewGoal) {
+        console.log('Creating new goal from synchronizeGoal:', goal.title);
+        
+        // Generate a permanent ID for the new goal
+        const permanentGoal = {
+          ...goal,
+          id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        };
+        
+        // Create the new goal
+        savedGoal = await this.createGoal(permanentGoal);
+        
+        // If we have an editor instance, update the table with the new row
+        if (editor) {
+          console.log('Updating goals tracker table with new goal:', savedGoal.title);
+          // Only update the table if this is the first save
+          if (!goal._hasBeenSaved) {
+            this.updateGoalsTrackerTable(savedGoal, editor);
+            goal._hasBeenSaved = true;
+          }
+        }
+      } else {
+        // Just update existing goal
+        savedGoal = await this.updateGoal(goal.id, goal);
+        
+        // Update the document representation if needed
+        if (editor) {
+          this.updateDocumentGoal(savedGoal, editor);
+        }
       }
       
-      return updatedGoal;
+      return savedGoal;
     } catch (error) {
       console.error('Error synchronizing goal:', error);
-      // If there's an error, we still want to return something
-      return goal;
+      return goal; // Return the original goal as fallback
     }
   }
   
@@ -453,6 +481,216 @@ class GoalService {
     
     // This would be implemented based on the specific editor component
     // being used and how it represents goals in the document
+  }
+  
+  /**
+   * Updates document with a newly created goal by adding it to the goals tracker table
+   * @param {Object} goal Goal data
+   * @param {Object} editor Editor instance
+   */
+  updateGoalsTrackerTable(goal, editor) {
+    if (!editor || !goal) return false;
+    
+    try {
+      console.log('Updating goals tracker table with new goal:', goal.title);
+      
+      const state = editor.state;
+      const { doc, schema } = state;
+      
+      // Find all tables in the document
+      let goalsTablePos = null;
+      let tableNode = null;
+      let addNewGoalRowPos = null;
+      let addNewGoalRow = null;
+      
+      // Traverse the document to find the goals table and add new goal row
+      doc.descendants((node, pos) => {
+        // Look for tables
+        if (node.type.name === 'table') {
+          // Check if this is a goals tracker table by looking at first header cell
+          if (node.firstChild && node.firstChild.firstChild) {
+            const headerText = node.firstChild.firstChild.textContent.trim().toLowerCase();
+            if (headerText.includes('goal') || headerText === 'goal name') {
+              console.log('Found goals tracker table at position:', pos);
+              goalsTablePos = pos;
+              tableNode = node;
+              
+              // Find the "Add new goal" row and the last regular row
+              let rowCount = node.childCount;
+              
+              // Debug: Print information about all rows in the table
+              console.log(`Table has ${rowCount} rows`);
+              for (let i = 0; i < rowCount; i++) {
+                const row = node.child(i);
+                if (row.firstChild) {
+                  console.log(`Row ${i}: ${row.firstChild.textContent.trim()}`);
+                }
+              }
+              
+              // Look for "Add new goal" row - usually the last row
+              // Start from the end for efficiency
+              for (let i = rowCount - 1; i >= 0; i--) {
+                const row = node.child(i);
+                if (row.firstChild && row.firstChild.textContent.trim().includes('Add new goal')) {
+                  console.log(`Found "Add new goal" row at index ${i}`);
+                  addNewGoalRow = row;
+                  // The position will be the table position + the position of the rows before this one
+                  let offset = 1; // Start after the opening tag
+                  for (let j = 0; j < i; j++) {
+                    offset += node.child(j).nodeSize;
+                  }
+                  addNewGoalRowPos = pos + offset;
+                  break;
+                }
+              }
+            }
+          }
+          
+          // We found what we need, no need to continue searching
+          if (goalsTablePos !== null && addNewGoalRowPos !== null) {
+            return false;
+          }
+        }
+        return true;
+      });
+      
+      // If we didn't find a goals table, we can't update it
+      if (!goalsTablePos || !tableNode) {
+        console.log('Could not find goals tracker table');
+        return false;
+      }
+      
+      // Check if a row with this goal's title already exists
+      let existingRowPos = null;
+      tableNode.descendants((node, pos) => {
+        if (node.type.name === 'tableRow' && node.firstChild) {
+          const cellText = node.firstChild.textContent.trim();
+          if (cellText === goal.title) {
+            existingRowPos = pos;
+            return false;
+          }
+        }
+        return true;
+      });
+      
+      // If we found an existing row, don't create a new one
+      if (existingRowPos) {
+        console.log('Found existing row for goal:', goal.title);
+        return true;
+      }
+      
+      // Create the new row for the goal
+      const newGoalRow = this._createGoalTableRow(goal, schema);
+      
+      // Strategy for inserting a row:
+      // 1. If we found the "Add new goal" row, insert before it
+      // 2. Otherwise, insert at the end of the table (before the closing tag)
+      
+      let insertPos;
+      
+      if (addNewGoalRowPos) {
+        console.log('Found Add new goal row, inserting before it at position:', addNewGoalRowPos);
+        insertPos = addNewGoalRowPos;
+      } else {
+        // Insert at the end of the table, before the closing tag
+        console.log('No Add new goal row found, appending to end of table');
+        insertPos = goalsTablePos + tableNode.nodeSize - 1;
+        console.log('Inserting at end of table position:', insertPos);
+      }
+      
+      // Create the transaction and insert the row
+      const tr = state.tr;
+      tr.insert(insertPos, newGoalRow);
+      
+      // Apply the transaction
+      editor.view.dispatch(tr);
+      console.log('Transaction dispatched for new goal row');
+      
+      // Force a redraw and focus to ensure changes are visible
+      setTimeout(() => {
+        editor.view.focus();
+        console.log('Editor focused to ensure UI update');
+      }, 150);
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating goals tracker table:', error);
+      return false;
+    }
+  }
+  
+  // Helper method to create a table row for a goal
+  _createGoalTableRow(goalData, schema) {
+    // Create the status cell with proper styling based on status
+    const status = goalData.status || 'Not Started';
+    let statusColor = '';
+    
+    // Determine color based on status
+    switch (status.toLowerCase()) {
+      case 'not started':
+        statusColor = 'background: #ffdeeb; color: #c2255c;';
+        break;
+      case 'in progress':
+        statusColor = 'background: #d3f9d8; color: #2b8a3e;';
+        break;
+      case 'completed':
+        statusColor = 'background: #e9ecef; color: #495057;';
+        break;
+      case 'blocked':
+        statusColor = 'background: #ffe3e3; color: #c92a2a;';
+        break;
+      default:
+        statusColor = 'background: #e9ecef; color: #495057;';
+    }
+    
+    // Create priority cell with proper styling
+    const priority = goalData.priority || 'Medium';
+    let priorityColor = '';
+    
+    // Determine color based on priority
+    switch (priority.toLowerCase()) {
+      case 'critical':
+        priorityColor = 'background: #f3d9fa; color: #ae3ec9;';
+        break;
+      case 'high':
+        priorityColor = 'background: #ffe3e3; color: #c92a2a;';
+        break;
+      case 'medium':
+        priorityColor = 'background: #fff3bf; color: #e67700;';
+        break;
+      case 'low':
+        priorityColor = 'background: #e6fcf5; color: #0ca678;';
+        break;
+      default:
+        priorityColor = 'background: #e9ecef; color: #495057;';
+    }
+    
+    // First try with a simplified approach that has better compatibility across editors
+    try {
+      // Create a simple row without special styling first
+      return schema.nodes.tableRow.create(null, [
+        // Title cell
+        schema.nodes.tableCell.create(null, schema.nodes.paragraph.create(null, schema.text(goalData.title || 'New Goal'))),
+        // Status cell
+        schema.nodes.tableCell.create(null, schema.nodes.paragraph.create(null, schema.text(status))),
+        // Due Date cell
+        schema.nodes.tableCell.create(null, schema.nodes.paragraph.create(null, schema.text(goalData.dueDate || ''))),
+        // Priority cell
+        schema.nodes.tableCell.create(null, schema.nodes.paragraph.create(null, schema.text(priority))),
+        // Team cell
+        schema.nodes.tableCell.create(null, schema.nodes.paragraph.create(null, schema.text('')))
+      ]);
+    } catch (error) {
+      console.error('Error creating row:', error);
+      
+      // If all else fails, create the most basic row possible
+      try {
+        return schema.nodes.tableRow.create();
+      } catch (finalError) {
+        console.error('Fatal error creating row:', finalError);
+        throw finalError;
+      }
+    }
   }
 }
 

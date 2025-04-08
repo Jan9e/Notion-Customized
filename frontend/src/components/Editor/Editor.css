@@ -1640,6 +1640,34 @@ td.due-date-cell {
   position: relative;
 }
 
+/* Add New Goal Cell styling */
+.ProseMirror table td.add-new-goal-cell {
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.ProseMirror table td.add-new-goal-cell:hover {
+  background-color: rgba(79, 70, 229, 0.08);
+}
+
+.ProseMirror table td.add-new-goal-cell::after {
+  content: '+';
+  position: absolute;
+  left: 0px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6366F1;
+  font-size: 14px;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.ProseMirror table td.add-new-goal-cell:hover::after {
+  opacity: 1;
+}
+
 .ProseMirror table .table-cell-button {
   font-size: 10px;
   padding: 2px 4px;

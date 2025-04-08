@@ -332,6 +332,33 @@ export default function GoalEnabledEditor({ content, onUpdate, pageId }) {
     // Set processing flag
     isProcessingRef.current = true;
     
+    // Check if we're dealing with a newly created goal (from Add new goal cell)
+    const isNewGoalRequest = goalData.id.startsWith('goal-new-');
+    
+    // If this is a new goal request, always open it as a new goal
+    if (isNewGoalRequest) {
+      console.log('New goal creation request detected');
+      setIsPeekOpen(false); // First close any open peek
+      setActiveGoal(null);  // Clear any existing goal data
+      
+      // Create fresh goal object with the current page ID
+      const freshGoal = {
+        ...goalData,
+        pageId: pageId
+      };
+      
+      // Short delay to ensure UI has reset before opening new goal
+      setTimeout(() => {
+        setActiveGoal(freshGoal);
+        setIsPeekOpen(true);
+        
+        // Reset processing flag after the peek is open
+        isProcessingRef.current = false;
+      }, 50);
+      return;
+    }
+    
+    // For existing goals, use the original toggle logic
     // Check if we're dealing with the currently open goal
     const isSameGoal = isPeekOpen && activeGoal && activeGoal.id === goalData.id;
     
@@ -410,8 +437,17 @@ export default function GoalEnabledEditor({ content, onUpdate, pageId }) {
       // Make sure we have a clean, serializable goal object
       const cleanGoal = { ...updatedGoal };
       
+      // Check if this is a newly created goal (from the "Add new goal" row)
+      const isNewGoal = cleanGoal.id.includes('goal-new-') && editorInstance;
+      
       // Use the synchronize method from our service (wrapped in Promise to handle async)
       const result = await Promise.resolve(goalService.synchronizeGoal(cleanGoal, editorInstance));
+      
+      // If this was a new goal and we have an editor instance, update the table
+      if (isNewGoal && editorInstance && result) {
+        console.log('New goal created, updating table in document');
+        goalService.updateGoalsTrackerTable(result, editorInstance);
+      }
       
       // Update the local state only after successful synchronization
       if (result) {
